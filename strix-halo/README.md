@@ -20,8 +20,35 @@ See [NOTES.md](NOTES.md) for the initial survey of other possible optimization s
 ## Branch organization
 
 - `master` — tracks upstream `ggml-org/llama.cpp` plus this folder and a README banner.
-- `strix-halo/<name>` — one branch per discrete patch, cleanly forkable.
-- (Planned) `strix-halo-main` — integration branch composing validated patches.
+- `strix-halo/<name>` — one branch per discrete patch, branched directly off upstream (no docs). Kept lean so each patch is forkable/upstreamable.
+- `strix-halo-main` — integration branch: master + all validated `strix-halo/*` patches cherry-picked on top. This is what the Dockerfile's `LLAMACPP_VERSION` should point at.
+
+## Keeping up with upstream
+
+Upstream `ggml-org/llama.cpp` moves daily. Resync cadence is roughly every few days.
+
+```bash
+# Fetch upstream
+git fetch origin                    # origin = ggml-org/llama.cpp
+
+# Merge upstream into fork's master (docs-only changes shouldn't conflict).
+git checkout master
+git merge origin/master
+git push strix-halo master          # strix-halo = justinappler/llama.cpp-strix-halo
+
+# For each patch branch, rebase onto fresh upstream. Resolve any conflicts
+# in the patched file; abandon the branch if the upstream change supersedes it.
+git checkout strix-halo/fa-mma-rdna35
+git rebase origin/master
+git push -f strix-halo strix-halo/fa-mma-rdna35
+
+# Rebuild the integration branch from scratch:
+git checkout master
+git branch -D strix-halo-main 2>/dev/null || true
+git checkout -b strix-halo-main
+git cherry-pick <commit-of-each-validated-patch>...
+git push -f strix-halo strix-halo-main
+```
 
 ## Build
 
