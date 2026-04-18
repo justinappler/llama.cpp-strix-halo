@@ -511,7 +511,15 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
 
 void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
     ggml_cuda_set_device(ctx.device);
-    switch (ggml_cuda_get_best_fattn_kernel(ggml_cuda_get_device(), dst)) {
+    const best_fattn_kernel chosen = ggml_cuda_get_best_fattn_kernel(ggml_cuda_get_device(), dst);
+    if (getenv("GGML_FA_TRACE")) {
+        static const char * names[] = { "NONE", "TILE", "VEC", "WMMA_F16", "MMA_F16" };
+        const ggml_tensor * Q = dst->src[0];
+        fprintf(stderr, "fa-trace: kernel=%s Q->ne=[%ld,%ld,%ld,%ld] K->type=%d V->type=%d\n",
+                names[chosen], Q->ne[0], Q->ne[1], Q->ne[2], Q->ne[3],
+                dst->src[1]->type, dst->src[2]->type);
+    }
+    switch (chosen) {
         case BEST_FATTN_KERNEL_NONE:
             GGML_ABORT("fatal error");
         case BEST_FATTN_KERNEL_TILE:
