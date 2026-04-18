@@ -451,7 +451,11 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
         return BEST_FATTN_KERNEL_WMMA_F16;
     }
 
-    if (amd_wmma_available(cc) && GGML_CUDA_CC_IS_RDNA4(cc) && gqa_opt_applies && Q->ne[0] <= 128 && Q->ne[0] != 40 && Q->ne[0] != 72) {
+    // Also route RDNA3.5 (gfx1151) here: the MMA kernel's get_config dispatcher
+    // (fattn-mma-f16.cuh:181) already picks an RDNA path via amd_wmma_available()
+    // that covers RDNA3+RDNA4. Without this, gfx1151 falls through to the TILE
+    // kernel, which has no efficient quantized-KV path and collapses at depth.
+    if (amd_wmma_available(cc) && (GGML_CUDA_CC_IS_RDNA4(cc) || GGML_CUDA_CC_IS_RDNA3_5(cc)) && gqa_opt_applies && Q->ne[0] <= 128 && Q->ne[0] != 40 && Q->ne[0] != 72) {
         if (can_use_vector_kernel) {
             if (!ggml_is_quantized(K->type) && !ggml_is_quantized(V->type)) {
                 if (Q->ne[1] == 1) {
