@@ -455,7 +455,7 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
     // (fattn-mma-f16.cuh:181) already picks an RDNA path via amd_wmma_available()
     // that covers RDNA3+RDNA4. Without this, gfx1151 falls through to the TILE
     // kernel, which has no efficient quantized-KV path and collapses at depth.
-    if (amd_wmma_available(cc) && (GGML_CUDA_CC_IS_RDNA4(cc) || GGML_CUDA_CC_IS_RDNA3_5(cc)) && gqa_opt_applies && Q->ne[0] <= 128 && Q->ne[0] != 40 && Q->ne[0] != 72) {
+    if (amd_wmma_available(cc) && (GGML_CUDA_CC_IS_RDNA4(cc) || GGML_CUDA_CC_IS_RDNA3_5(cc)) && gqa_opt_applies && Q->ne[0] <= 256 && Q->ne[0] != 40 && Q->ne[0] != 72) {
         if (can_use_vector_kernel) {
             if (!ggml_is_quantized(K->type) && !ggml_is_quantized(V->type)) {
                 if (Q->ne[1] == 1) {
@@ -513,10 +513,17 @@ void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst
     ggml_cuda_set_device(ctx.device);
     const best_fattn_kernel chosen = ggml_cuda_get_best_fattn_kernel(ggml_cuda_get_device(), dst);
     if (getenv("GGML_FA_TRACE")) {
-        static const char * names[] = { "NONE", "TILE", "VEC", "WMMA_F16", "MMA_F16" };
+        const char * name = "?";
+        switch (chosen) {
+            case BEST_FATTN_KERNEL_NONE:     name = "NONE"; break;
+            case BEST_FATTN_KERNEL_TILE:     name = "TILE"; break;
+            case BEST_FATTN_KERNEL_VEC:      name = "VEC"; break;
+            case BEST_FATTN_KERNEL_WMMA_F16: name = "WMMA_F16"; break;
+            case BEST_FATTN_KERNEL_MMA_F16:  name = "MMA_F16"; break;
+        }
         const ggml_tensor * Q = dst->src[0];
         fprintf(stderr, "fa-trace: kernel=%s Q->ne=[%ld,%ld,%ld,%ld] K->type=%d V->type=%d\n",
-                names[chosen], Q->ne[0], Q->ne[1], Q->ne[2], Q->ne[3],
+                name, Q->ne[0], Q->ne[1], Q->ne[2], Q->ne[3],
                 dst->src[1]->type, dst->src[2]->type);
     }
     switch (chosen) {
