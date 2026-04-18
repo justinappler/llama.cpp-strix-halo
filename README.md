@@ -1,4 +1,9 @@
-# llama.cpp
+# llama.cpp — Strix Halo fork
+
+> Fork of [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) with experimental changes for **AMD Strix Halo** (`gfx1151`, RDNA 3.5 iGPU + Zen 5 + LPDDR5x unified memory).
+> See [`strix-halo/README.md`](strix-halo/README.md) for findings, patches, and benchmarks.
+
+---
 
 ![llama](https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png)
 
