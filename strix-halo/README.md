@@ -9,7 +9,7 @@ The goal is a reproducible, benchmarked set of patches that meaningfully improve
 | # | Finding | Impact | Status |
 |--:|---|---|---|
 | 1 | [Quantized KV cache collapses throughput at depth](kv-cache.md) | **17× pp @ d=16k** on Qwen 3.6; V-quant is the dominant cost | Config fix only; no patch needed |
-| 2 | [FA dispatcher gates RDNA3.5 out of MMA_F16 kernel](fa-dispatcher.md) | 1-line patch; bench pending | Branch `strix-halo/fa-mma-rdna35` |
+| 2 | [FA dispatcher gates RDNA3.5 out of MMA_F16 kernel](fa-dispatcher.md) | Attempted 1-line patch; **abandoned** | See doc — blocked on MMA device code not compiled for gfx1151 |
 
 See [NOTES.md](NOTES.md) for the initial survey of other possible optimization sites in the llama.cpp source (most not yet pursued).
 
@@ -17,41 +17,37 @@ See [NOTES.md](NOTES.md) for the initial survey of other possible optimization s
 
 - [Qwen 3.6 35B-A3B baseline on gfx1151](qwen3.6-baseline.md) — establishes production-config numbers and the f16-KV recovery.
 
-## Branch organization
+## Approach: one branch, one commit at a time
 
-- `master` — tracks upstream `ggml-org/llama.cpp` plus this folder and a README banner.
-- `strix-halo/<name>` — one branch per discrete patch, branched directly off upstream (no docs). Kept lean so each patch is forkable/upstreamable.
-- `strix-halo-main` — integration branch: master + all validated `strix-halo/*` patches cherry-picked on top. This is what the Dockerfile's `LLAMACPP_VERSION` should point at.
+Single working branch: `master` on the fork (this repo). It tracks `ggml-org/llama.cpp` upstream plus this `strix-halo/` docs folder plus any accumulated, validated patches.
+
+Rather than maintain a separate branch per patch + an integration branch, each optimization attempt is a single commit landed on master. The workflow per attempt:
+
+1. **Write up the hypothesis** in a new markdown doc under `strix-halo/` before touching code. Link the source lines you plan to change, state what you expect to measure.
+2. **Make the change** as one commit on master.
+3. **Build & benchmark** via the server-configs Dockerfile (`LLAMACPP_VERSION=<sha>`). Always pin to a SHA, never a branch name — Docker caches the git-clone layer by command string.
+4. **Decide**: if the bench shows a real gain (outside noise, across the matrix of depths/quants we care about), the commit stays. If it's null or negative, revert the commit and leave the doc as a record of the dead end, with the reason annotated at the bottom.
+
+This keeps the history as a log of "tried this, here's what happened" rather than a pile of speculative branches. Docs accumulate even when patches don't — we've already gotten two concrete findings (KV quant, FA dispatcher dead-end) out of exactly this rhythm.
 
 ## Keeping up with upstream
 
 Upstream `ggml-org/llama.cpp` moves daily. Resync cadence is roughly every few days.
 
 ```bash
-# Fetch upstream
-git fetch origin                    # origin = ggml-org/llama.cpp
+# Fetch upstream (origin = ggml-org/llama.cpp)
+git fetch origin
 
-# Merge upstream into fork's master (docs-only changes shouldn't conflict).
+# Rebase fork master onto upstream. Docs-only changes shouldn't conflict;
+# if a patch commit conflicts with an upstream change that supersedes it,
+# drop the commit during rebase and annotate the doc accordingly.
 git checkout master
-git merge origin/master
-git push strix-halo master          # strix-halo = justinappler/llama.cpp-strix-halo
-
-# For each patch branch, rebase onto fresh upstream. Resolve any conflicts
-# in the patched file; abandon the branch if the upstream change supersedes it.
-git checkout strix-halo/fa-mma-rdna35
 git rebase origin/master
-git push -f strix-halo strix-halo/fa-mma-rdna35
-
-# Rebuild the integration branch from scratch:
-git checkout master
-git branch -D strix-halo-main 2>/dev/null || true
-git checkout -b strix-halo-main
-git cherry-pick <commit-of-each-validated-patch>...
-git push -f strix-halo strix-halo-main
+git push -f strix-halo master          # strix-halo = justinappler/llama.cpp-strix-halo
 ```
 
 ## Build
 
 See [server-configs Dockerfile](https://github.com/justinappler/server-configs) for a working multi-stage build against TheRock ROCm nightly that the upstream llama.cpp Dockerfile does not yet support on gfx1151. Official ROCm apt packages ship broken `gfx1151` `.hsaco` kernels — see [ROCm/ROCm#6042](https://github.com/ROCm/ROCm/issues/6042).
 
-To use this fork's patches, point the Dockerfile's `LLAMACPP_VERSION` arg at a commit on the relevant `strix-halo/*` branch and rebuild.
+Point `LLAMACPP_VERSION` at a specific commit SHA on this fork's master (or on upstream) to rebuild. Branch names work but Docker caches the clone layer by command string — always use SHA when iterating.
