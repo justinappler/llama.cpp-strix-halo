@@ -8,7 +8,7 @@ The goal is a reproducible, benchmarked set of patches that meaningfully improve
 
 | # | Finding | Impact | Status |
 |--:|---|---|---|
-| 1 | [Quantized KV cache collapses throughput at depth](kv-cache.md) | **17× pp @ d=16k** on Qwen 3.6 | Config fix only; no patch needed |
+| 1 | [Quantized KV cache collapses throughput at depth](kv-cache.md) | **17× pp @ d=16k** on Qwen 3.6; V-quant is the dominant cost | Config fix only; no patch needed |
 | 2 | [FA dispatcher gates RDNA3.5 out of MMA_F16 kernel](fa-dispatcher.md) | 1-line patch; bench pending | Branch `strix-halo/fa-mma-rdna35` |
 
 See [NOTES.md](NOTES.md) for the initial survey of other possible optimization sites in the llama.cpp source (most not yet pursued).
