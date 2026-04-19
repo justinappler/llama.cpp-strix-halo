@@ -781,6 +781,8 @@ static __global__ void flash_attn_tile(
 
     // Skip unused kernel variants for faster compilation:
 
+    // Optionally disable pruning to keep all TILE variants for testing.
+#if !defined(GGML_USE_HIP)
     if (
 #ifdef GGML_USE_WMMA_FATTN
             (ncols2 != 1 && DV != 40 && DV != 72 && DV != 512) ||
@@ -799,6 +801,7 @@ static __global__ void flash_attn_tile(
         NO_DEVICE_CODE;
         return;
     }
+#endif // !defined(GGML_USE_HIP)
 
     static_assert(ggml_cuda_fattn_tile_get_config(DKQ, DV, ncols1*ncols2) != 0, "kernel config not defined");
 
