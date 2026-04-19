@@ -36,4 +36,32 @@ Decision rule: keep if tg128 @ d=0 improves >3 % outside noise **and** no depth 
 
 ## Outcome
 
-_To be filled after bench._
+**Reverted.** tg128 collapsed at every depth; pp512 held at d=0 but regressed sharply from d=8k onward. Qwen3.6 35B-A3B Q4_K_XL, same knobs as [qwen3.6-baseline.md](qwen3.6-baseline.md) Run 3, build `35291ec`, compared against MMQ baseline (`d8ad713`):
+
+| test | baseline (d8ad713) | RDNA3_0 table (35291ec) | delta |
+|---|---:|---:|---:|
+| pp512 @ d=0       | 1,309        | 1,316.18 ± 18.26 | +0.5 % (noise) |
+| pp512 @ d=2,048   | 1,232        | 1,213.36 ± 18.32 | −1.5 % (noise) |
+| pp512 @ d=8,192   | 1,036        |   960.00 ± 5.02  | **−7.3 %**  |
+| pp512 @ d=16,384  |   855        |   740.31 ± 4.70  | **−13.4 %** |
+| tg128 @ d=0       |  46.66       |    38.40 ± 0.12  | **−17.7 %** |
+| tg128 @ d=2,048   |  — (unmeasured) |  36.62 ± 0.03  | n/a        |
+| tg128 @ d=8,192   |  — (unmeasured) |  31.90 ± 0.01  | n/a        |
+| tg128 @ d=16,384  |  43.46       |    26.99 ± 0.04  | **−37.9 %** |
+
+Every decision criterion fails: tg128 doesn't improve at d=0, tg regresses at every depth, pp512 regresses at depth ≥ 8k. Reverted on next commit.
+
+### What the numbers actually say
+
+The hypothesis "regress via register pressure at `nwarps=8`" is the simplest fit. `calc_nwarps` at [mmvq.cu:348](../ggml/src/ggml-cuda/mmvq.cu#L348) returns 8 for Q4_K at `ncols_dst=1` only (i.e., the bs=1 decode path). That maps exactly to what regressed: tg128 is bs=1 and collapses everywhere, while pp512 at d=0 (where `ncols_dst > 1` for the GEMV column-grouping) survives. The depth-dependent pp512 fall-off is attention-side, not MMVQ — KV grows, attention cost grows, and whatever headroom the change cost elsewhere compounds.
+
+That's consistent with RDNA3.5's smaller register file vs W7900. W7900 has ~192 KB VGPR/CU and 40 MB L3; RDNA 3.5 has the same nominal VGPR but no discrete L3, and LLC is shared with the CPU. At `nwarps=8` on Q4_K the kernel's live-register footprint spills or forces low-occupancy scheduling — exactly the kind of win-in-FLOPS, lose-in-bandwidth tradeoff the RDNA3.5 profile punishes.
+
+### Follow-ups this suggests
+
+- The "give RDNA3.5 its own table" variant (PR #21344's original plan, reverted after review) is more promising than "join RDNA3_0" — a tighter whitelist (say, only Q4_0/Q8_0 where vec_dot is simple) plus `nwarps ∈ {2, 4}` is the natural next sweep. Parking this until there's a concrete reason to revisit — register-pressure tuning is a many-knob search and the cheap version already failed.
+- NOTES.md #2 should be demoted or rewritten: "join RDNA3_0" is the wrong question. The real question is whether any non-RDNA2 table suits RDNA 3.5, and at what nwarps.
+
+### Upstream context
+
+This patch implements one half of what [PR #21344](https://github.com/ggml-org/llama.cpp/pull/21344) originally proposed and then withdrew (commit `7957de9d` "revert changes to mmvq.cu"). The upstream reviewer's skepticism was correct for this chip: on this workload it is a real regression. Left as a dead end doc rather than deleted, because the next person who sees NOTES.md item #2 will otherwise try the same thing.
