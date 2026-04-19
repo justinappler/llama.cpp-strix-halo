@@ -13,6 +13,7 @@ The goal is a reproducible, benchmarked set of patches that meaningfully improve
 | 3 | [UMA / `integrated = false`](uma-integrated.md) | Originally flagged as likely biggest win; research says otherwise | **Researched, deprioritized** — narrow on HIP APUs |
 | 4 | [ROCm config flags: unroll-threshold + `HIPBLASLT_BATCHED=0`](rocm-config.md) | Community reports 2× pp on other models; null on Qwen 3.6 | **Bench null, kept on** as AMD-recommended safety nets |
 | 5 | [MMQ tile/nwarp tuning for gfx1151 (port of PR #21344)](mmq-rdna3_5.md) | **+27% pp @ d=0, +17% pp @ d=16k** on Qwen 3.6 Q4_K_XL; tg128 flat | **Kept** on master (commit `d8ad713`) |
+| 6 | [rocWMMA FA tuning for gfx1151 (port of PR #16827)](rocwmma-tuned.md) | **Flat** on Qwen 3.6 (D=256 dodges 3 of 4 D-gated knobs); lhl measured +35-65% pp @ depth on D≤128 models | **Kept** on master (commit `1be00ab8`) — zero-cost on current workload, real wins on any D≤128 model swapped in |
 
 See [NOTES.md](NOTES.md) for the initial survey of other possible optimization sites in the llama.cpp source (most not yet pursued).
 
