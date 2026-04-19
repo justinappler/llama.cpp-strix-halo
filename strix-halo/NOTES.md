@@ -6,13 +6,13 @@ Findings are ordered by likely impact. None have been benchmarked — each is a 
 
 ## HIP / ROCm backend
 
-### 1. Zero-copy for integrated GPUs is globally disabled
+### 1. Zero-copy for integrated GPUs is globally disabled — **researched, deprioritized**
 
 [ggml/src/ggml-cuda/ggml-cuda.cu:243](ggml/src/ggml-cuda/ggml-cuda.cu#L243)
 
-`integrated = false` is hard-coded with a comment referencing issue #15034. That flag gates a real UMA fast-path — GPU kernels being allowed to operate directly on CUDA-host (pinned/UMA) buffers instead of requiring a DeviceLocal copy ([line 4085](ggml/src/ggml-cuda/ggml-cuda.cu#L4085), [line 5125](ggml/src/ggml-cuda/ggml-cuda.cu#L5125)).
+`integrated = false` is hard-coded with a comment referencing issue #15034. Originally flagged here as the likely single biggest Strix Halo win. **Research in [uma-integrated.md](uma-integrated.md) concluded otherwise**: the flag only gates the `cuda_host` pinned-buffer path (logits, small scratch), not weight or KV traffic. Weights go through `hipMalloc` on HIP regardless. PR #16308 author reported no Jetson perf impact from toggling this, which is a strong prior-against.
 
-On Strix Halo, "VRAM" is a GART carve-out of the same DDR, so the copy is pure waste. Fixing #15034 and conditionally re-enabling would likely be the single biggest win.
+Not worth pursuing as a pp optimization on gfx1151. See the doc for the full consumer-site analysis and the separate `GGML_CUDA_ENABLE_UNIFIED_MEMORY` env var that provides a real UMA lever if one is wanted.
 
 ### 2. MMVQ routes RDNA3.5 to the RDNA2 tuning table
 
@@ -78,4 +78,6 @@ With 64-128 GB of LPDDR5X and 60B+ parameter models, TLB pressure during inferen
 
 ## Suggested starting point
 
-**#1 (integrated flag for HIP)** — it's a documented, deliberately-disabled optimization, and the linked issue (#15034) would reveal exactly what broke. The fix may be narrower than it appears.
+**#2 (MMVQ RDNA3.5 tuning table)** — now that #1 is deprioritized, this is the next-cheapest experiment: RDNA3.5 has RDNA3_0-like dual-issue VALU and WMMA, but the MMVQ dispatch routes it through the `nwarps=1` RDNA2 table. Touches tuning constants only, no kernel changes. Qwen 3.6 is MoE with 3B active params → MMVQ-heavy during tg, so a reasonable test target.
+
+Out-of-scope for llama.cpp source changes but worth flagging: see [rocm-config.md](rocm-config.md) for two ROCm-level config flags (`ROCBLAS_USE_HIPBLASLT_BATCHED=0`, LLVM unroll-threshold override) that are AMD-recommended for gfx1151 with `GGML_HIP_ROCWMMA_FATTN=OFF`. Community reports ~2× pp on gpt-oss-120b; null on Qwen 3.6.

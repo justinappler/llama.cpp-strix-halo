@@ -10,6 +10,8 @@ The goal is a reproducible, benchmarked set of patches that meaningfully improve
 |--:|---|---|---|
 | 1 | [Quantized KV cache collapses throughput at depth](kv-cache.md) | **17× pp @ d=16k** on Qwen 3.6; V-quant is the dominant cost | Config fix only; no patch needed |
 | 2 | [FA dispatcher gates RDNA3.5 out of MMA_F16 kernel](fa-dispatcher.md) | Attempted 1-line patch; **abandoned** | See doc — blocked on MMA device code not compiled for gfx1151 |
+| 3 | [UMA / `integrated = false`](uma-integrated.md) | Originally flagged as likely biggest win; research says otherwise | **Researched, deprioritized** — narrow on HIP APUs |
+| 4 | [ROCm config flags: unroll-threshold + `HIPBLASLT_BATCHED=0`](rocm-config.md) | Community reports 2× pp on other models; null on Qwen 3.6 | **Bench null, kept on** as AMD-recommended safety nets |
 
 See [NOTES.md](NOTES.md) for the initial survey of other possible optimization sites in the llama.cpp source (most not yet pursued).
 
