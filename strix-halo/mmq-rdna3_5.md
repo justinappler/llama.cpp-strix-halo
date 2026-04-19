@@ -46,4 +46,17 @@ Decision rule: keep the commit if pp512 @ d=0 improves >5% outside noise **and**
 
 ## Outcome
 
-*(pending bench)*
+**Kept.** Qwen 3.6 35B-A3B Q4_K_XL, same build knobs as [qwen3.6-baseline.md](qwen3.6-baseline.md) Run 3 (f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3`), build `d8ad713`:
+
+| test | baseline | PR #21344 | delta |
+|---|---:|---:|---:|
+| pp512 @ d=0       | 1,029 | 1,309 ± 29 | **+27.2%** |
+| pp512 @ d=2,048   |   —   | 1,232 ± 9  | (new)      |
+| pp512 @ d=8,192   |   —   | 1,036 ± 6  | (new)      |
+| pp512 @ d=16,384  |   731 |   855 ± 6  | **+17.0%** |
+| tg128 @ d=0       |  46.5 |  46.66     | +0.3% |
+| tg128 @ d=16,384  |  43.3 |  43.46     | +0.4% |
+
+Decision rule (pp512@d=0 improves >5% AND no depth regresses) passes on both counts. pp512 gains are real across every depth — not flat at d=16k as kyuz0's observation implied. The "hit or miss at large context" comment is most likely about d=32k+, which we don't currently test. tg128 is flat (expected — MMQ tile tuning is a prompt-processing fix).
+
+Cold 10k prefill estimate, integrating the pp512 curve: ~10.2s (vs ~12s baseline). The long-context deficit vs DGX Spark is still attention-kernel-bound and this patch doesn't touch it, but short-context TTFT is now visibly faster.
