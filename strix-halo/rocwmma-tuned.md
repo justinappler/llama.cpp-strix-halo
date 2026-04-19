@@ -26,7 +26,9 @@ lhl's own bench results on gfx1151 (llama-bench, `-fa 1`, depths `0,4096,8192,16
 
 `vs HIP baseline` is the one that matters for us — that's the column against our current master build (rocWMMA off, TILE on decode). Gains scale with depth, which is exactly the axis where our MMQ port is flat (see [mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19](mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19): +14% pp @ d=16k vs the +35-50% this might add). Stacking is possible because the two patches work on disjoint kernels (MMQ GEMM vs rocWMMA FA).
 
-Risk we're taking on: lhl benched on Llama 3.2 1B (dense) and gpt-oss 20B F16 (MoE, F16 weights). Our target is Qwen 3.6 35B-A3B Q4_K_XL (MoE, quantized weights). The FA path doesn't touch quantization and Qwen 3.6 A3B has a similar attention shape to gpt-oss (both GQA, D=128-ish), so the gain *direction* should port, but the magnitude is unknown.
+Risk we're taking on: lhl benched on Llama 3.2 1B (dense) and gpt-oss 20B F16 (MoE, F16 weights). Our target is Qwen 3.6 35B-A3B Q4_K_XL (MoE, quantized weights). The FA path doesn't touch quantization and Qwen 3.6 A3B is GQA, so the gain *direction* should port, but the magnitude is unknown.
+
+**NB (added post-bench):** I assumed Qwen 3.6 A3B was "D=128-ish like gpt-oss" when writing this — that was wrong. Qwen 3.6 A3B has `n_embd_head_k = n_embd_head_v = 256`, twice as wide as gpt-oss 20B (D=128) or Llama 3.2 1B (D=64). Three of lhl's four knobs are D-gated (`D≤128` adaptive stride, `D≤96` nwarps, decode dispatch tied to head-dim exclusions), so on a D=256 model only `__launch_bounds__ min_blocks=2` fires. See Outcome below.
 
 Note the separate [tg-at-depth-regression.md](tg-at-depth-regression.md) regression: the decode path also goes through dispatcher logic, and lhl's patch (2) reshapes how HIP decode picks VEC vs TILE. If tg @ d=16k recovers alongside the pp gain, that's a nice bonus; if it doesn't, the regression is pinned more tightly on #22051.
 
@@ -83,4 +85,52 @@ The zero-cost fallback is that the patch compiles out completely with the Docker
 
 ## Outcome
 
-_(Pending first bench.)_
+**Kept on master as commit `1be00ab8`.** Decision deviates from the stated keep-if rule (pp512 @ d=16k +10%); see rationale below.
+
+### Bench (2026-04-19, Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV)
+
+A: `bc8362b09` — MMQ port, rocWMMA FA **off**.
+B: `1be00ab8` — same as A plus this commit, rocWMMA FA **on**.
+
+- **pp512** at depths `{0, 2048, 8192, 16384}`: within ±1.5% across the full matrix — flat.
+- **tg128** at the same depths: consistently -1.0% to -1.6% vs A, at or below the ±2% run-to-run noise floor we've been seeing.
+
+Neither axis moves meaningfully. The decision rule says *revert* (no pp gain; tg technically fails the "no regression" guard, though the magnitude is in the noise).
+
+### Why it's not moving the needle on Qwen 3.6
+
+rocprof-sys trace on a pp512 @ d=8192 run (`profiling/traces/run-20260419-115122/`, queried via `trace_processor`) shows the FA kernel dispatch is unambiguously the rocWMMA path:
+
+| Kernel | Invocations | Total GPU time |
+|---|---:|---:|
+| `flash_attn_ext_f16<256, 16, 4, 64, float, false>` | 60 | 7.94 s |
+| `flash_attn_combine_results<256>` | 60 | 39 ms |
+| `flash_attn_mask_to_KV_max<16>` | 40 | 5.5 ms |
+| `flash_attn_tile_*` | **0** | — |
+
+Template params decode as `<D=256, ncols=16, nwarps=4, VKQ_stride=64, KQ_acc_t=float, use_logit_softcap=false>`. So:
+
+- **`D=256`** confirms Qwen 3.6 A3B's head dim is 256 (also verified at load time: `n_embd_head_k = n_embd_head_v = 256`, `n_head=16`, `n_head_kv=2`, so GQA ratio 8).
+- **`VKQ_stride=64`** is consistent with `FATTN_KQ_STRIDE=256` (upstream default, since our patch only halves it for `D≤128`). The adaptive-stride change from patch (2) does not fire.
+- **`nwarps=4`** is the upstream value. Patch (3) only bumps to 8 at `D≤96`, also doesn't fire.
+- **No decode FA calls** in the trace (bench was pp-only), so patch (4)'s TILE-fallback is untested on this run but also irrelevant for prefill performance.
+
+That leaves only patch (1) — `__launch_bounds__ min_blocks=2` — as the active change on our shape. lhl's bench is bundled so we can't directly attribute gain shares, but from first principles patches (2) + (3) shrink LDS + stack arrays by halving `FATTN_KQ_STRIDE` and doubling `nwarps`, which is where the RDNA 3.5 register-file pressure gets relieved; both are D-gated out at D=256. Patch (1) on its own is an occupancy hint, which is what you'd expect to see in the "flat, not regressive" regime we observe.
+
+**Conclusion:** the port is correct and the kernel dispatch is working exactly as designed. Qwen 3.6 A3B just doesn't hit the code paths lhl tuned for.
+
+### Why keep it anyway (deviation from the decision rule)
+
+Three reasons:
+
+1. **Zero downside on the current workload.** pp flat, tg regression is in the noise floor. If a regression materialises on a later bench we can flip the Dockerfile flag back to `OFF` — the `#if GGML_USE_HIP && GGML_HIP_ROCWMMA_FATTN` gating makes that a one-line Dockerfile change with no source edit, and the commit stays useful as a carrier for the code.
+2. **Real gains on any D≤128 model we'd swap in.** Llama 3.1/3.2 (D=128), Qwen 2.5/3 dense (D=128), Mistral 7B (D=128), gpt-oss 20B (D=128), and Phi-series (D=96) would all hit the full bundle. lhl's measured pp gains on those shapes are +35-65% at depth. We run side-by-side evals on this box often enough that keeping the infrastructure paid-for is worth the rebase cost.
+3. **No maintenance surprise.** All changes are `#if`-gated behind `GGML_HIP_ROCWMMA_FATTN`, so CUDA builds and HIP-without-rocWMMA builds are byte-identical to upstream. Upstream merges into these three files rebase cleanly unless upstream itself reshapes the rocWMMA path.
+
+### If the primary workload changes
+
+If we later migrate off Qwen 3.6 A3B onto a D≤128 model, re-bench before assuming the existing numbers transfer — lhl's gpt-oss 20B F16 is the closest shape we have a prior for, and the +35% pp @ d=16k target applies there, not here.
+
+### If upstream merges #16827 or a successor
+
+Drop our commit during rebase. The [lhl PR discussion](https://github.com/ggml-org/llama.cpp/pull/16827) was rejected on maintainability grounds, not correctness; if a refactor makes it in, watch for behaviour-equivalence on our D=256 shape before blindly dropping our commit.
