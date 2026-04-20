@@ -63,7 +63,7 @@ Cold 10k prefill estimate, integrating the pp512 curve: ~10.2s (vs ~12s baseline
 
 ## Post-upstream-sync re-bench (2026-04-19)
 
-Upstream [PR #22051](https://github.com/ggml-org/llama.cpp/pull/22051) (JohannesGaessler, merged 2026-04-17) refactored the MMQ host/device helpers we edit in this patch. Per the plan recorded in [NOTES.md](NOTES.md) under "Watching upstream", the next upstream sync triggers an A/B: confirm the port still wins on the refactored code, or drop it.
+Upstream [PR #22051](https://github.com/ggml-org/llama.cpp/pull/22051) (JohannesGaessler, merged 2026-04-17) refactored the MMQ host/device helpers we edit in this patch. Per the plan in the repository [README](../README.md#watching-upstream) under **Watching upstream**, the next upstream sync triggers an A/B: confirm the port still wins on the refactored code, or drop it.
 
 Rebased our fork `master` onto upstream (commit `3a05ae1`, with PR #22051 as the immediate parent of our patch). The rebase had to re-resolve `mmq.cuh` conflicts at two of the six sites because #22051 touched the same two functions — mechanical resolution preserved both the upstream cleanup and our RDNA3.5 overrides. A/B measured against a throwaway `bench-no-mmq` branch (`b078e4b`) that reverts only the `mmq.cuh` portion of our patch, keeping everything else identical.
 
