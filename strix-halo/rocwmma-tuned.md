@@ -50,7 +50,7 @@ All changes are `#if defined(GGML_USE_HIP) && defined(GGML_HIP_ROCWMMA_FATTN)`-g
 
 Two things change in server-configs on top of the usual `llamacpp_version` bump:
 
-1. `llamacpp_version` pins the new full SHA on `strix-halo` remote.
+1. Push to `origin` (the fork), then bump `llamacpp_version` to the new full SHA.
 2. `/Users/jappler/Projects/server-configs/services/llamacpp/files/Dockerfile` line 100: `-DGGML_HIP_ROCWMMA_FATTN=OFF` → `=ON`. The comment block above it (lines 96-99) explaining the ~100x slowdown is the reason we've had it off; replace it with a pointer to this doc noting that the tuning patch fixes the regression.
 
 ## Bench plan
