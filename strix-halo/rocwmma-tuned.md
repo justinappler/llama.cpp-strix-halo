@@ -1,5 +1,11 @@
 # rocWMMA FA tuning for gfx1151 — port of lhl's PR #16827
 
+## Status (2026-04-27)
+
+**Flag flipped back to `GGML_HIP_ROCWMMA_FATTN=OFF` for Qwen 3.6 production.**
+
+The 2026-04-19 outcome bench saw flat pp on Qwen 3.6 (D=256) and concluded "kept anyway" on the strength of theoretical D≤128 wins. Re-bench on 2026-04-27 against the same source/host with only the flag flipped showed **pp512 @ d=16k jumped 244 → 853 t/s** when the flag was turned off — the patched rocWMMA FA path silently regressed at D=256 over the intervening week. See [Re-bench 2026-04-27 — flag back OFF (regression)](#re-bench-2026-04-27--flag-back-off-regression) at the bottom of this file. Flip back to ON only when swapping to a D≤128 model.
+
 ## Hypothesis
 
 On `gfx1151` the rocWMMA flash-attention path is currently a net loss at depth and so we keep `GGML_HIP_ROCWMMA_FATTN=OFF` in the Dockerfile (see [fa-dispatcher.md](fa-dispatcher.md) and the server-configs comment). With the flag off, every FA call routes to the generic TILE kernel, which has no tensor-core path on RDNA 3.5 — that's the biggest remaining piece of dead silicon on the chip.
@@ -134,3 +140,46 @@ If we later migrate off Qwen 3.6 A3B onto a D≤128 model, re-bench before assum
 ### If upstream merges #16827 or a successor
 
 Drop our commit during rebase. The [lhl PR discussion](https://github.com/ggml-org/llama.cpp/pull/16827) was rejected on maintainability grounds, not correctness; if a refactor makes it in, watch for behaviour-equivalence on our D=256 shape before blindly dropping our commit.
+
+## Re-bench 2026-04-27 — flag back OFF (regression)
+
+The 2026-04-19 "kept anyway" decision rested primarily on reason 1 ("zero downside on the current workload"). Re-running the same bench five weeks later disproved that reason. The doc kept its conclusion through that whole window without re-validation; this file's earlier "flat" observation was a snapshot, not a stable property.
+
+### Trigger
+
+Production-side observation: Qwen 3.6 felt slow at depth in agentic loops. Operator first attributed it to TheRock nightly progression (`0411` → `0426`, bumped today) and host package churn (Ubuntu's `rocm` 7.1.x temporarily replacing `amdrocm7.12-gfx1151` from 2026-04-22 to 2026-04-27). Systematic elimination ruled out: container ROCm version, llama.cpp upstream delta (rebased onto pre-#22298 to confirm), source-level patch drift, host ROCm package set (full reinstall + reboot), modprobe.d state (post-reboot identical), KFD userptr eviction (zero firings), memory pressure (49 GiB free), GPU clocks (boosting cleanly to 2895 MHz at 100% busy, edge ≤64°C — no throttling), GPU/system firmware (`DMUB 0x09003F00` / `VCN 1.24/9/0/16` identical across boots). The only remaining variable was the build flag.
+
+### Bench
+
+Same shape as the 2026-04-19 outcome bench: Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3`, depths `{0, 2048, 8192, 16384}`. Source for both runs is identical (current master with the patches present); only the build flag differs.
+
+| test | rocWMMA FA **ON** (`8e0d4b0`) | rocWMMA FA **OFF** (`8e0d4b0`) | Δ | 2026-04-19 baseline (`bc8362b09`, FATTN OFF) |
+|---|---:|---:|---:|---:|
+| pp512 @ d=0       | 1,210.89 ± 11.41 | **1,367.46 ± 7.02**  | +12.9% | 1,305 ± 12 |
+| pp512 @ d=2,048   |   809.63 ± 5.33  | **1,234.25 ± 6.06**  | +52.4% | 1,185 ± 7  |
+| pp512 @ d=8,192   |   406.96 ± 1.05  | **1,043.46 ± 14.97** | +156.4% |   953 ± 8  |
+| pp512 @ d=16,384  |   241.69 ± 0.22  |   **852.79 ± 8.96**  | **+252.9%** |   744 ± 5  |
+| tg128 @ d=0       |  48.55 ± 0.02    |  48.29 ± 0.09        | flat   | 46.73 ± 0.34 |
+| tg128 @ d=16,384  |  45.11 ± 0.03    |  45.02 ± 0.14        | flat   | 31.75 ± 0.14 |
+
+`OFF` recovers the 2026-04-19 baseline and *exceeds* it by 14.6% at d=16k — the orthogonal #22298 MMQ stream-k overhead reduction explains the rest. tg-at-depth is +41.8% vs the 2026-04-19 baseline, also from #22298 (see [tg-at-depth-regression.md](tg-at-depth-regression.md)).
+
+### Mechanism (unverified)
+
+We didn't bisect what specifically broke between the rocWMMA FA path's "flat at landing" state on 2026-04-19 and today. Candidates, in order of plausibility:
+
+- **TheRock nightly progression** (`0411` → ~`0426` window). The patch's tile/launch parameters are tuned against a specific kernel-driver/hipcc combo. Compiler bumps in TheRock can re-shuffle register allocation and break the `min_blocks=2` budget that patch (1) relies on, causing register spills that hit hardest at depth (more KV residency pressure).
+- **Upstream `mma.cuh` / `fattn-wmma-f16.cuh` refactors** between #22051 and #22298. Our patches replayed cleanly on rebase but the surrounding code shifted; behaviour equivalence isn't guaranteed.
+- **Hidden interaction with the MMQ port (#21344)**. Both patches were validated independently on Qwen 3.6 but never co-validated past the day they landed.
+
+Bisecting requires rebuilding the container per candidate, which is the exact slow loop we're trying to avoid. Given the patch is `#if`-gated and harmless when off, the cheapest action is to leave it off and revisit only if we swap to a D≤128 workload.
+
+### What this updates upstream of this file
+
+- The "Why keep it anyway" reasoning in this doc is now invalid as written — reason 1 is disproven by direct measurement, reason 2 (D≤128 gains) is unchanged, reason 3 (no maintenance surprise) is unchanged. The flag is off; the patch source stays in master as dead code awaiting a D≤128 workload.
+- `services/llamacpp/files/Dockerfile` flips to `=OFF` with a comment block pointing at this section.
+- [qwen3.6-baseline.md](qwen3.6-baseline.md) regression note (2026-04-27) had attributed the pp drop tentatively to the ROCm 7.13 nightly progression. That note is amended in this same commit batch with the correct cause.
+
+### Lesson for the playbook
+
+The 2026-04-19 doc concluded "kept anyway" with three reasons; reason 1 was a *snapshot*, not a guarantee. **A patch that's flat at landing time should be re-benched after every meaningful upstream sync or ROCm bump**, not just at landing. The escape hatch in the original doc ("if a regression materialises on a later bench we can flip the Dockerfile flag back to OFF") was wired correctly but only useful if we actually bench. Add the re-bench to the upstream-sync workflow.

@@ -49,9 +49,9 @@ Integrating the pp512 curves (linear interpolation between measured depths):
 - Qwen 3.6 A3B compute/token (MLP portion, ~3 B active): ~6 GFLOPs.
 - Short-context pp ceiling (MLP-only): ~9,800 t/s. We're at ~10 % of that — MoE routing, attention, and non-matmul overhead all contribute.
 
-## 2026-04-27 — pp-at-depth regression observed (cause unclear)
+## 2026-04-27 — pp-at-depth regression observed and resolved
 
-Re-benched with the same model and flags. d=0 improved; d=16k regressed sharply versus Run 3 above.
+Initial re-bench with the same model and flags showed pp512@d=16k collapsed sharply versus Run 3 above:
 
 | depth | pp512 (t/s) | tg128 (t/s) | vs Run 3 baseline pp |
 |------:|------------:|------------:|---------------------:|
@@ -60,7 +60,32 @@ Re-benched with the same model and flags. d=0 improved; d=16k regressed sharply 
 | 8,192 |         398 |        44.4 |                   — |
 | 16,384 |         238 |        42.9 |               −67 % |
 
-The d=0 improvement comes from hipBLASLt loading clean gfx1151 `.hsaco` kernels again (the official ROCm apt path was missing them; the container build switched back to TheRock nightly, which ships them). The d=16k regression is not yet explained — reverting llama.cpp SHA didn't recover the numbers, so it isn't a userspace SHA we can blame. The host has since drifted off the 24.04 HWE/OEM kernel that this baseline was taken on (now on Ubuntu 26.04 stock `7.0.0-14-generic`; no OEM kernel exists for 26.04 yet), but the upgrade predates the regression by a meaningful amount, so it isn't a clean attribution. `dmesg` does show escalating `amdgpu_amdkfd_restore_userptr_worker` activity, which is consistent with userptr eviction stalls but not proven to fire during the bench window. Best current guess is something in the ROCm 7.13 nightly progression, but it's unconfirmed.
+### Initial (incorrect) attribution
+
+The first guess was something in the ROCm 7.13 nightly progression — TheRock had been bumped from `0411` → `0426` and host packages had churned (`amdrocm7.12-gfx1151` swapped for Ubuntu's distro `rocm` 7.1.x on 2026-04-22, then reinstalled on 2026-04-27). That guess was wrong.
+
+### Actual cause: `GGML_HIP_ROCWMMA_FATTN=ON` regressed silently on Qwen 3.6
+
+Systematic bisection over the day eliminated, with evidence: container ROCm version (rebuild against `0411` would have been the same), llama.cpp upstream delta (rebased onto pre-#22298 to confirm), source-level patch drift (verified intact), host ROCm package set (full reinstall + reboot), modprobe.d state, KFD userptr eviction (zero firings), memory pressure (49 GiB free), GPU clocks (boosting cleanly to 2895 MHz at 100% busy, no throttling), GPU/system firmware (identical across boots), bench methodology (`docker exec` vs one-off, both shapes give the same number).
+
+The remaining variable was the `GGML_HIP_ROCWMMA_FATTN` build flag. Flipping it from `ON` to `OFF` with everything else held constant:
+
+| depth | rocWMMA ON | rocWMMA OFF | Δ |
+|------:|-----------:|------------:|---:|
+|     0 |   1,210.89 |  **1,367.46** | +12.9% |
+| 2,048 |     809.63 |  **1,234.25** | +52.4% |
+| 8,192 |     406.96 |  **1,043.46** | +156.4% |
+| 16,384|     241.69 |    **852.79** | **+252.9%** |
+
+`OFF` recovered the Run 3 baseline and exceeded it by 14.6% at d=16k. The patched rocWMMA FA path (commit `1be00ab87` / today's `030e29029`, [rocwmma-tuned.md](rocwmma-tuned.md)) had silently regressed at D=256 between landing on 2026-04-19 (where the doc's outcome bench called it "flat ±1.5%") and now. See [rocwmma-tuned.md "Re-bench 2026-04-27 — flag back OFF (regression)"](rocwmma-tuned.md#re-bench-2026-04-27--flag-back-off-regression) for the full investigation and the candidate mechanisms.
+
+### What the d=0 improvement *was*
+
+The +15% pp512@d=0 in the regression-state numbers above (1,185 vs 1,029 in Run 3) is real — it tracks the orthogonal #22298 MMQ stream-k overhead reduction, plus our MMQ port (PR #21344) being now well-rebased onto current upstream. Even with the rocWMMA FA path costing 12.9% at d=0, the MMQ improvements showed through at shallow context.
+
+### Disregard the original `userptr_restore_worker` hypothesis
+
+The regression note initially flagged "escalating `amdgpu_amdkfd_restore_userptr_worker` activity" as consistent with userptr eviction stalls. Direct check during this investigation: `dmesg` shows zero firings of `amdgpu_amdkfd_restore_userptr_worker` since boot. The hypothesis is dead. The depth-proportional shape of the original regression was real but came from the rocWMMA FA path scaling worse with KV cache size, not from KV being paged out.
 
 ## Related findings
 
