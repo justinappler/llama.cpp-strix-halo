@@ -1,5 +1,26 @@
 # Upstream tg-at-depth regression surfaced by the 2026-04-17 sync
 
+## Status (2026-04-27): resolved upstream
+
+Resolved in upstream by [PR #22298 — CUDA: reduce MMQ stream-k overhead](https://github.com/ggml-org/llama.cpp/pull/22298), merged 2026-04-26. Re-benched on the post-#22298 sync (build `e5c5956`, ROCm nightly `7.13.0a20260426`):
+
+| test | b078e4b (post-#22051, regressed) | post-#22298 (today) | recovery |
+|---|---:|---:|---:|
+| tg128 @ d=0      | 46.17 ± 0.03 | 49.20 ± 0.23 | recovered + |
+| tg128 @ d=2,048  | 43.25 ± 0.08 | 48.12 ± 0.29 | recovered + |
+| tg128 @ d=8,192  | 37.19 ± 0.01 | 47.06 ± 0.22 | recovered + |
+| tg128 @ d=16,384 | 31.47 ± 0.12 | 44.90 ± 0.92 | **recovered, +42.6%** |
+
+The bisect direction (regression in shared `mma.cuh` `tile<>::load` paths) was right; #22298's stream-k overhead reduction touched the same hot path and incidentally fixed tg at depth on AMD. No fork-side action needed.
+
+Note: this finding surfaced during the 2026-04-27 rocWMMA FA flag investigation (see [rocwmma-tuned.md](rocwmma-tuned.md#re-bench-2026-04-27--flag-back-off-regression) and [qwen3.6-baseline.md](qwen3.6-baseline.md)). The pp-at-depth side of that day's work is unrelated to this regression — same depth axis, different cause.
+
+The original investigation notes are kept below for posterity.
+
+---
+
+# Original investigation
+
 ## What we saw
 
 Re-benching Qwen 3.6 35B-A3B Q4_K_XL at [mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19](mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19) on the rebased fork turned up an unexpected regression at depth that is **not** caused by our MMQ port. The isolation A/B (same post-sync upstream, with and without our patch) showed our port contributes nothing to tg — so comparing the pre-sync bench (`d8ad713`) against the post-sync no-port build (`b078e4b`) isolates what upstream changed:

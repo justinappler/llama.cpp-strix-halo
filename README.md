@@ -15,7 +15,7 @@ The aim is a reproducible, benchmarked set of changes that improve inference on 
 | 3 | [UMA / `integrated = false`](strix-halo/uma-integrated.md) | Originally flagged as likely biggest win; research says otherwise | **Researched, deprioritized** — narrow on HIP APUs |
 | 4 | [ROCm config flags: unroll-threshold + `HIPBLASLT_BATCHED=0`](strix-halo/rocm-config.md) | Community reports 2× pp on other models; null on Qwen 3.6 | **Bench null, kept on** as AMD-recommended safety nets |
 | 5 | [MMQ tile/nwarp tuning for gfx1151 (port of PR #21344)](strix-halo/mmq-rdna3_5.md) | **+27% pp @ d=0, +17% pp @ d=16k** on Qwen 3.6 Q4_K_XL; tg128 flat | **Kept** on master (commit `d8ad713`) |
-| 6 | [rocWMMA FA tuning for gfx1151 (port of PR #16827)](strix-halo/rocwmma-tuned.md) | **Flat** on Qwen 3.6 (D=256 dodges 3 of 4 D-gated knobs); lhl measured +35–65% pp @ depth on D≤128 models | **Kept** on master (commit `1be00ab8`) — zero-cost on current workload, real wins on any D≤128 model swapped in |
+| 6 | [rocWMMA FA tuning for gfx1151 (port of PR #16827)](strix-halo/rocwmma-tuned.md) | Flat at landing (2026-04-19); **silently regressed at D=256** by 2026-04-27 — pp512@d=16k 244 vs 853 t/s with flag off | **Source kept** on master (commit `030e2902`) but **`GGML_HIP_ROCWMMA_FATTN=OFF`** in the Dockerfile. `#if`-gated, harmless when off. Flip back ON only when swapping to a D≤128 model |
 
 Topic docs, code pointers, and dead-end postmortems live under [`strix-halo/`](strix-halo/). A longer survey of optimization sites in the tree (HIP / Vulkan / CPU), numbered §1–10, is in [`strix-halo/NOTES.md`](strix-halo/NOTES.md); the **#n** tags in the next-experiments tables below refer to those sections.
 
@@ -55,7 +55,12 @@ T-shirt sizes: **S** = hours, **M** = a day or two, **L** = a week, **XL** = mul
 ### Watching upstream
 
 - **[PR #22051](https://github.com/ggml-org/llama.cpp/pull/22051)** (JohannesGaessler, merged 2026-04-17) — refactored AMD mma data loading in `mma.cuh` and the MMQ host/device helpers we touch in Finding #5. **Resolved 2026-04-19:** rebased our patch on top, re-benched with + without. Port still wins by +37% pp @ d=0 / +14% pp @ d=16k on Qwen 3.6; see [mmq-rdna3_5.md § post-upstream sync](strix-halo/mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19). Separately surfaced an upstream tg-at-depth regression unrelated to our patch, tracked in [tg-at-depth-regression.md](strix-halo/tg-at-depth-regression.md).
-- **[PR #16827](https://github.com/ggml-org/llama.cpp/pull/16827)** (lhl, rejected upstream) — rocWMMA FA tuning for gfx1151. Ported onto master as Finding #6 with zero net impact on our Qwen 3.6 D=256 workload but real upside if we ever swap primary model to a D≤128 shape; see [rocwmma-tuned.md](strix-halo/rocwmma-tuned.md). Drop our commit during rebase if upstream ever merges a successor.
+- **[PR #22298](https://github.com/ggml-org/llama.cpp/pull/22298)** (CUDA: reduce MMQ stream-k overhead, merged 2026-04-26) — **Resolved the tg-at-depth regression** that was tracked in [tg-at-depth-regression.md](strix-halo/tg-at-depth-regression.md) (tg128@d=16k 31.47 → 44.90 t/s). Touches the same `mma.cuh` hot path #22051 reshaped. No fork-side action.
+- **[PR #16827](https://github.com/ggml-org/llama.cpp/pull/16827)** (lhl, rejected upstream) — rocWMMA FA tuning for gfx1151. Source kept on master (commit `030e2902`) but **`GGML_HIP_ROCWMMA_FATTN=OFF`** as of 2026-04-27 after the path silently regressed at D=256; see [rocwmma-tuned.md § Re-bench 2026-04-27](strix-halo/rocwmma-tuned.md#re-bench-2026-04-27--flag-back-off-regression). Drop our commit during rebase if upstream ever merges a successor.
+
+### Re-bench checklist after upstream sync or ROCm bump
+
+The 2026-04-27 rocWMMA regression went undetected for ~5 weeks because the doc said "flat" at landing and we didn't re-validate. After every upstream sync OR TheRock nightly bump, run the full Qwen 3.6 bench at `{0, 2048, 8192, 16384}` and compare against the prior baseline. If pp@d=16k is significantly different, **bisect the build flag** (`GGML_HIP_ROCWMMA_FATTN`) before assuming the upstream/ROCm change is the cause — that's the cheapest possible test and historically the highest-yield.
 
 ## How this fork is developed
 
