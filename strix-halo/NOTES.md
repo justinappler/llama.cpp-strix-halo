@@ -14,13 +14,13 @@ Findings are ordered by likely impact. None have been benchmarked — each is a 
 
 Not worth pursuing as a pp optimization on gfx1151. See the doc for the full consumer-site analysis and the separate `GGML_CUDA_ENABLE_UNIFIED_MEMORY` env var that provides a real UMA lever if one is wanted.
 
-### 2. MMVQ routes RDNA3.5 to the RDNA2 tuning table
+### 2. MMVQ routes RDNA3.5 to the RDNA2 tuning table — **partially researched**
 
 [ggml/src/ggml-cuda/mmvq.cu:77](ggml/src/ggml-cuda/mmvq.cu#L77), [mmvq.cu:93](ggml/src/ggml-cuda/mmvq.cu#L93)
 
 RDNA3.5 has dual-issue VALU and WMMA like RDNA3_0, but MMVQ sends it down `MMVQ_PARAMETERS_RDNA2` (nwarps=1). The RDNA3_0 table at [mmvq.cu:348](ggml/src/ggml-cuda/mmvq.cu#L348) uses `nwarps=8` on a whitelist of types.
 
-Worth benchmarking whether RDNA3.5 wants its own table or should join RDNA3_0.
+**"Join RDNA3_0" was tried and reverted** — see [mmvq-rdna3_5.md](mmvq-rdna3_5.md). At `nwarps=8` on Q4_K, RDNA3.5's smaller LLC + shared-with-CPU cache hierarchy spills registers and tg128 collapses (−18 % @ d=0, −38 % @ d=16k on Qwen 3.6 Q4_K_XL). The remaining open question is a **dedicated RDNA3.5 table** with a tighter quant whitelist and `nwarps ∈ {2, 4}` — README backlog #2.
 
 ### 3. mmf gates `src1_ncols > 8` on RDNA3_0 only
 

@@ -2,9 +2,19 @@
 
 ## Status (2026-04-27)
 
-**Flag flipped back to `GGML_HIP_ROCWMMA_FATTN=OFF` for Qwen 3.6 production.**
+**Flag flipped back to `GGML_HIP_ROCWMMA_FATTN=OFF` for Qwen 3.6 production. Kernel slated for upstream removal.**
 
-The 2026-04-19 outcome bench saw flat pp on Qwen 3.6 (D=256) and concluded "kept anyway" on the strength of theoretical D≤128 wins. Re-bench on 2026-04-27 against the same source/host with only the flag flipped showed **pp512 @ d=16k jumped 244 → 853 t/s** when the flag was turned off — the patched rocWMMA FA path silently regressed at D=256 over the intervening week. See [Re-bench 2026-04-27 — flag back OFF (regression)](#re-bench-2026-04-27--flag-back-off-regression) at the bottom of this file. Flip back to ON only when swapping to a D≤128 model.
+Honest framing: **rocWMMA-on never measurably beat rocWMMA-off on Qwen 3.6 Q4_K_XL.** The 2026-04-19 outcome bench was flat (pp ±1.5%, tg in noise) — patches (2)-(4) are D-gated out at D=256, leaving only an occupancy hint as the active change. The "kept anyway" decision rested on three reasons: (1) zero measured downside, (2) lhl's measured +35-65% pp gains on D≤128 models, (3) `#if`-gated source is harmless when off. Reason (2) is **untested on this fork** — we never benched a D≤128 model with the flag on.
+
+Re-bench on 2026-04-27 against the same source/host with only the flag flipped showed **pp512 @ d=16k jumped 244 → 853 t/s** when the flag was turned off — the flag-on path went from neutral to actively harmful at D=256 over the intervening week. See [Re-bench 2026-04-27 — flag back OFF (regression)](#re-bench-2026-04-27--flag-back-off-regression) at the bottom of this file.
+
+### Upstream context: `fattn-wmma-f16.cuh` is being removed
+
+JohannesGaessler [stated explicitly on 2025-10-29](https://github.com/ggml-org/llama.cpp/pull/16827#issuecomment-3454830174) (the PR thread that closed without merge) that the WMMA kernel is on a deprecation path: he considers the high-level CUDA-WMMA / rocWMMA abstraction "fundamentally bad" because it forces a register → SRAM → register round-trip, and is replacing it by adding AMD-WMMA + AMD-MFMA + Volta paths to `mma.cuh`. Once those land, the FA-MMA kernel covers all archs and `fattn-wmma-f16.cuh` is deleted. ETA he gave: ~1 month from Oct 2025; we're 6 months out, partial progress (PR #22051 landed 2026-04-17, PR #22298 merged 2026-04-26).
+
+**Implication for our `030e2902` commit:** when JohannesGaessler's chain finishes and the WMMA kernel is removed, this patch fails to apply during rebase. Drop it then. Until then, the commit is dead source carried in case we swap to a D≤128 workload before the upstream removal.
+
+Re-benching against a D≤128 model (Llama 3.2, gpt-oss 20B, Qwen 2.5 dense, Phi) before flipping the flag back ON is still the right gate — but increasingly low-priority, since the kernel itself is getting deleted. The lhl numbers are a prior, not a measurement on this fork, and the window in which they could matter is closing.
 
 ## Hypothesis
 
