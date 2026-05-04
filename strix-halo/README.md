@@ -16,6 +16,8 @@ Markdown in this directory is the **lab notebook** for AMD Strix Halo (`gfx1151`
 | [`rocwmma-tuned.md`](rocwmma-tuned.md) | rocWMMA FA tuning (PR #16827 port) — **flag flipped back OFF 2026-04-27** after regression on Qwen 3.6 |
 | [`mmvq-rdna3_5.md`](mmvq-rdna3_5.md) | MMVQ routing notes |
 | [`tg-at-depth-regression.md`](tg-at-depth-regression.md) | TG-at-depth regression — **resolved upstream by #22298, 2026-04-27** |
+| [`jg-cuda-fa-rdna3-4.md`](jg-cuda-fa-rdna3-4.md) | FA MMA_F16 D=256 enablement (JG cherry-pick + 1-line guard widen) — **held, not promoted 2026-05-01** after honest f16/f16-KV A/B showed pp regression at depth |
+| [`fa-rdna3-opsel-pair.md`](fa-rdna3-opsel-pair.md) | OPSEL-paired half2 accumulator port — **attempted, abandoned 2026-05-04** in test-backend-ops debugging spiral |
 | [`qwen3.6-baseline.md`](qwen3.6-baseline.md) | Qwen 3.6 35B-A3B baseline numbers |
 | [`codex-insights.md`](codex-insights.md) | Consolidated assistant read of the above |
 
