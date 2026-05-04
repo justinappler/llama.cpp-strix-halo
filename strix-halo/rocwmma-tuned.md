@@ -12,7 +12,7 @@ Re-bench on 2026-04-27 against the same source/host with only the flag flipped s
 
 JohannesGaessler [stated explicitly on 2025-10-29](https://github.com/ggml-org/llama.cpp/pull/16827#issuecomment-3454830174) (the PR thread that closed without merge) that the WMMA kernel is on a deprecation path: he considers the high-level CUDA-WMMA / rocWMMA abstraction "fundamentally bad" because it forces a register → SRAM → register round-trip, and is replacing it by adding AMD-WMMA + AMD-MFMA + Volta paths to `mma.cuh`. Once those land, the FA-MMA kernel covers all archs and `fattn-wmma-f16.cuh` is deleted. ETA he gave: ~1 month from Oct 2025; we're 6 months out, partial progress (PR #22051 landed 2026-04-17, PR #22298 merged 2026-04-26).
 
-**Implication for our `030e2902` commit:** when JohannesGaessler's chain finishes and the WMMA kernel is removed, this patch fails to apply during rebase. Drop it then. Until then, the commit is dead source carried in case we swap to a D≤128 workload before the upstream removal.
+**Implication for our `a6a27b66` commit:** when JohannesGaessler's chain finishes and the WMMA kernel is removed, this patch fails to apply during rebase. Drop it then. Until then, the commit is dead source carried in case we swap to a D≤128 workload before the upstream removal.
 
 Re-benching against a D≤128 model (Llama 3.2, gpt-oss 20B, Qwen 2.5 dense, Phi) before flipping the flag back ON is still the right gate — but increasingly low-priority, since the kernel itself is getting deleted. The lhl numbers are a prior, not a measurement on this fork, and the window in which they could matter is closing.
 
