@@ -1,5 +1,7 @@
-# Extensions
+# Sub repos for easy reading/fetching
+/useful-repos/
 
+# Extensions
 *.a
 *.bat
 *.bin
