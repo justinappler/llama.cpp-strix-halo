@@ -98,3 +98,24 @@ Comparing pre-rebase (`d8ad713`, with port) vs post-rebase no-port (`b078e4b`) i
 | tg128 @ d=16,384 | 43.46   | 31.47 ± 0.12 | **−27.6%** |
 
 Our MMQ port recovers ~40% of the pp regression but zero of the tg regression (as expected — MMQ tuning doesn't touch the MMVQ path tg uses). Something in upstream between the two sync points pulled tg-at-depth down hard. Not this patch's problem; tracked separately in [tg-at-depth-regression.md](tg-at-depth-regression.md).
+
+## Post-rebase re-bench (2026-05-14, build `e4184dbb`)
+
+Bundle delta against the immediate predecessor shipped build (`a237ea1a`, TheRock `7.13.0a20260504`, MMQ-on, rocWMMA-off): 134 upstream commits (most notably PR #22880 RDNA3 mma FA), 10-day TheRock bump to `7.13.0a20260514`, and the re-port of this patch against upstream's new ternary `mmq.cuh` layout. The question this bench answers is **"did anything in the bundle break the validated MMQ port?"** — not whether MMQ-on still beats MMQ-off (the logical patch is identical to the 2026-04-19 re-bench above which already settled that, and re-running the no-port A/B against today's upstream would just confound itself with a third moving part).
+
+Same bench knobs as above (Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`):
+
+| test | a237ea1a (2026-04-27) | e4184dbb (2026-05-14) | delta |
+|---|---:|---:|---:|
+| pp512 @ d=0       | 1367.46 ± 7.02   | 1356.79 ± 8.72  | −0.8% |
+| pp512 @ d=2,048   | 1234.25 ± 6.06   | 1231.00 ± 3.70  | −0.3% |
+| pp512 @ d=8,192   | 1043.46 ± 14.97  | 1036.22 ± 11.68 | −0.7% |
+| pp512 @ d=16,384  |  852.79 ± 8.96   |  862.44 ± 8.49  | +1.1% |
+| tg128 @ d=0       |   48.29 ± 0.09   |   47.64 ± 0.16  | −1.3% |
+| tg128 @ d=2,048   |   (not run)      |   47.32 ± 0.17  | (new) |
+| tg128 @ d=8,192   |   (not run)      |   46.14 ± 0.18  | (new) |
+| tg128 @ d=16,384  |   45.02 ± 0.14   |   44.53 ± 0.15  | −1.1% |
+
+**All deltas inside the documented ±1.5% run-to-run noise floor on this host.** Re-port holds; nothing in the upstream/ROCm bundle moved the production numbers measurably. PR #22880 (RDNA3 mma FA, D≤128) was the most likely source of a delta and it landed neutral — consistent with JG's "tile kernel still preferred for RDNA3 at D>128" note (Qwen 3.6 A3B is D=256).
+
+**Kept** on master as commit `e4184dbb`. Re-bench gate satisfied for this rebase.
