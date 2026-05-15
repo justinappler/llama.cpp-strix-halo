@@ -6,6 +6,19 @@ Fork of [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) with experim
 
 The aim is a reproducible, benchmarked set of changes that improve inference on this chip—especially **agentic coding** workloads where long-context prompt processing and time-to-first-token dominate.
 
+## Where this fork stands
+
+Latest production bench, Qwen 3.6 35B-A3B Q4_K_XL on gfx1151 (commit `e4184dbb`, TheRock `7.13.0a20260514`, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3`):
+
+| depth   | pp512 (t/s)      | tg128 (t/s)   |
+| ------: | ---------------: | ------------: |
+|       0 | 1356.79 ± 8.72   | 47.64 ± 0.16  |
+|   2,048 | 1231.00 ± 3.70   | 47.32 ± 0.17  |
+|   8,192 | 1036.22 ± 11.68  | 46.14 ± 0.18  |
+|  16,384 |  862.44 ± 8.49   | 44.53 ± 0.15  |
+
+Headline: **~862 t/s prefill at 16k depth**, **~44.5 t/s decode through the depth axis**. Full bench config and the recovery story from earlier (pre-MMQ-port) baselines are in [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md); the post-rebase A/B that validated this build sits in [strix-halo/mmq-rdna3_5.md § Post-rebase re-bench](strix-halo/mmq-rdna3_5.md#post-rebase-re-bench-2026-05-14-build-e4184dbb).
+
 ## Strix Halo findings
 
 |   # | Finding                                                                                  | Impact                                                                                                                 | Status                                                                                                                                                                                 |
@@ -14,15 +27,11 @@ The aim is a reproducible, benchmarked set of changes that improve inference on 
 |   2 | [FA dispatcher gates RDNA3.5 out of MMA_F16 kernel](strix-halo/fa-dispatcher.md)         | Attempted 1-line patch; **abandoned**                                                                                  | See doc — blocked on MMA device code not compiled for gfx1151                                                                                                                          |
 |   3 | [UMA / `integrated = false`](strix-halo/uma-integrated.md)                               | Originally flagged as likely biggest win; research says otherwise                                                      | **Researched, deprioritized** — narrow on HIP APUs                                                                                                                                     |
 |   4 | [ROCm config flags: unroll-threshold + `HIPBLASLT_BATCHED=0`](strix-halo/rocm-config.md) | Community reports 2× pp on other models; null on Qwen 3.6                                                              | **Bench null, kept on** as AMD-recommended safety nets                                                                                                                                 |
-|   5 | [MMQ tile/nwarp tuning for gfx1151 (port of PR #21344)](strix-halo/mmq-rdna3_5.md)       | **+27% pp @ d=0, +17% pp @ d=16k** on Qwen 3.6 Q4_K_XL; tg128 flat (last bench 2026-04-19)                             | **Doc retained, code dropped on 2026-05-14 upstream rebase.** Upstream refactored `mmq.cuh` into ternary form; re-port pending against the new layout, then re-bench against [qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md). |
+|   5 | [MMQ tile/nwarp tuning for gfx1151 (port of PR #21344)](strix-halo/mmq-rdna3_5.md)       | **+27% pp @ d=0, +17% pp @ d=16k** on Qwen 3.6 Q4_K_XL vs no-port; tg128 flat                                          | **Kept** on master (commit `e4184dbb`). Re-ported 2026-05-14 against upstream's new ternary `mmq.cuh` layout (+18/−6 lines); post-rebase re-bench flat within ±1.5% noise vs prior shipped build, see [mmq-rdna3_5.md § Post-rebase re-bench](strix-halo/mmq-rdna3_5.md#post-rebase-re-bench-2026-05-14-build-e4184dbb). |
 |   6 | [rocWMMA FA tuning for gfx1151 (port of PR #16827)](strix-halo/rocwmma-tuned.md)         | Flat at landing (2026-04-19) on Qwen 3.6 D=256; actively harmful at D=256 by 2026-04-27 (pp512@d=16k 244 vs 853 t/s with flag off). lhl's +35-65% D≤128 numbers were untested on this fork. | **Retired on 2026-05-14 upstream rebase.** Flag was already `GGML_HIP_ROCWMMA_FATTN=OFF` in production; upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) routes RDNA3 D>128 to the TILE kernel (not WMMA), so the rocWMMA path has no production effect on Qwen 3.6 A3B. Doc kept as postmortem. |
 |   7 | [FA MMA_F16 D=256 on RDNA3 (JG `cuda-fa-rdna3-4` cherry-pick + 1-line guard widen)](strix-halo/jg-cuda-fa-rdna3-4.md) | Regression at f16/f16 KV in production (pp512@d=16k 851 → 660 t/s, −22.5%) when held in 2026-05. Held branch was a cherry-pick of JG's WIP. | **Superseded by upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) (merged 2026-05-14).** JG's commit message: "For RDNA3/4 I was not able to get better performance than the tile kernel for head sizes > 128." Upstream chose the opposite direction from the held branch at D>128 — TILE, not MMA. Held branches `experiment/jg-fa-rdna3{,-tune}` are now archival; delete after this rebase pushes. |
 
 Topic docs, code pointers, and dead-end postmortems live under [`strix-halo/`](strix-halo/). A longer survey of optimization sites in the tree (HIP / Vulkan / CPU), numbered §1–10, is in [`strix-halo/NOTES.md`](strix-halo/NOTES.md); the **#n** tags in the next-experiments tables below refer to those sections.
-
-## Strix Halo benchmarks
-
-- [Qwen 3.6 35B-A3B baseline on gfx1151](strix-halo/qwen3.6-baseline.md) — production-style config, f16 KV recovery, comparable `llama-bench` flags.
 
 ## Strix Halo: next experiments
 
