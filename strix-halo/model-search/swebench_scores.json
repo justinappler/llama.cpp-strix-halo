@@ -1,0 +1,1279 @@
+{
+  "generated_at": "2026-05-07T04:06:21Z",
+  "source": "github.com/SWE-bench/experiments evaluation/verified",
+  "total_instances": 500,
+  "submission_count": 134,
+  "by_model": {
+    "mistralai/Devstral-Small-2505": {
+      "score": 0.468,
+      "resolved": 234,
+      "best_submission": "20250520_openhands_devstral_small",
+      "info_name": "OpenHands + DevStral Small 2505",
+      "submission_date": "20250520"
+    },
+    "agentica-org/DeepSWE-Preview": {
+      "score": 0.588,
+      "resolved": 294,
+      "best_submission": "20250629_deepswerl_r2eagent_tts",
+      "info_name": "DeepSWE-Preview + TTS(Bo16)",
+      "submission_date": "20250629"
+    },
+    "moonshotai/Kimi-K2-Instruct": {
+      "score": 0.654,
+      "resolved": 327,
+      "best_submission": "20250716_openhands_kimi_k2",
+      "info_name": "OpenHands + Kimi K2",
+      "submission_date": "20250716"
+    },
+    "mistralai/Devstral-Small-2507": {
+      "score": 0.38,
+      "resolved": 190,
+      "best_submission": "20250725_sweagent_devstral_small_2507",
+      "info_name": "SWE-agent + DevStral Small 2507",
+      "submission_date": "20250725"
+    },
+    "zai-org/GLM-4.5": {
+      "score": 0.642,
+      "resolved": 321,
+      "best_submission": "20250728_zai_glm4-5",
+      "info_name": "GLM-4.5",
+      "submission_date": "20250728"
+    },
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct": {
+      "score": 0.604,
+      "resolved": 302,
+      "best_submission": "20250901_entroPO_R2E_QwenCoder30BA3B_tts",
+      "info_name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+      "submission_date": "20250901"
+    },
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct": {
+      "score": 0.696,
+      "resolved": 348,
+      "best_submission": "20250805_openhands-Qwen3-Coder-480B-A35B-Instruct",
+      "info_name": "OpenHands + Qwen3-Coder-480B-A35B-Instruct",
+      "submission_date": "20250805"
+    },
+    "zai-org/GLM-4.6": {
+      "score": 0.682,
+      "resolved": 341,
+      "best_submission": "20250930_zai_glm4-6",
+      "info_name": "GLM-4.6",
+      "submission_date": "20250930"
+    },
+    "moonshotai/Kimi-K2-Instruct-0905": {
+      "score": 0.712,
+      "resolved": 356,
+      "best_submission": "20251014_Lingxi_kimi_k2",
+      "info_name": "Lingxi v1.5 x Kimi K2",
+      "submission_date": "20251014"
+    }
+  },
+  "submissions": [
+    {
+      "submission": "20231010_rag_claude2",
+      "submission_date": "20231010",
+      "info_name": "RAG + Claude 2",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-2",
+      "resolved": 22,
+      "score": 0.044
+    },
+    {
+      "submission": "20231010_rag_gpt35",
+      "submission_date": "20231010",
+      "info_name": "RAG + ChatGPT 3.5",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 2,
+      "score": 0.004
+    },
+    {
+      "submission": "20231010_rag_swellama13b",
+      "submission_date": "20231010",
+      "info_name": "RAG + SWE-Llama 13B",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 6,
+      "score": 0.012
+    },
+    {
+      "submission": "20231010_rag_swellama7b",
+      "submission_date": "20231010",
+      "info_name": "RAG + SWE-Llama 7B",
+      "hf_model_id": null,
+      "tags_model_raw": "SWE-Llama",
+      "resolved": 7,
+      "score": 0.014
+    },
+    {
+      "submission": "20240402_rag_claude3opus",
+      "submission_date": "20240402",
+      "info_name": "RAG + Claude 3 Opus",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-opus-20240229",
+      "resolved": 35,
+      "score": 0.07
+    },
+    {
+      "submission": "20240402_rag_gpt4",
+      "submission_date": "20240402",
+      "info_name": "RAG + GPT 4 (1106)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4-1106-preview",
+      "resolved": 14,
+      "score": 0.028
+    },
+    {
+      "submission": "20240402_sweagent_claude3opus",
+      "submission_date": "20240402",
+      "info_name": "SWE-agent + Claude 3 Opus",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-opus-20240229",
+      "resolved": 79,
+      "score": 0.158
+    },
+    {
+      "submission": "20240402_sweagent_gpt4",
+      "submission_date": "20240402",
+      "info_name": "SWE-agent + GPT 4 (1106)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4-1106-preview",
+      "resolved": 112,
+      "score": 0.224
+    },
+    {
+      "submission": "20240509_amazon-q-developer-agent-20240430-dev",
+      "submission_date": "20240509",
+      "info_name": "Amazon Q Developer Agent (v20240430-dev)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 128,
+      "score": 0.256
+    },
+    {
+      "submission": "20240612_MASAI_gpt4o",
+      "submission_date": "20240612",
+      "info_name": "MASAI + GPT 4o (2024-06-12)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-08-06",
+      "resolved": 163,
+      "score": 0.326
+    },
+    {
+      "submission": "20240615_appmap-navie_gpt4o",
+      "submission_date": "20240615",
+      "info_name": "AppMap Navie + GPT 4o (2024-05-13)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-05-13",
+      "resolved": 131,
+      "score": 0.262
+    },
+    {
+      "submission": "20240617_factory_code_droid",
+      "submission_date": "20240617",
+      "info_name": "Factory Code Droid",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 185,
+      "score": 0.37
+    },
+    {
+      "submission": "20240620_sweagent_claude3.5sonnet",
+      "submission_date": "20240620",
+      "info_name": "SWE-agent + Claude 3.5 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 168,
+      "score": 0.336
+    },
+    {
+      "submission": "20240628_autocoderover-v20240620",
+      "submission_date": "20240628",
+      "info_name": "AutoCodeRover (v20240620) + GPT 4o (2024-05-13)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-05-13",
+      "resolved": 192,
+      "score": 0.384
+    },
+    {
+      "submission": "20240721_amazon-q-developer-agent-20240719-dev",
+      "submission_date": "20240721",
+      "info_name": "Amazon Q Developer Agent (v20240719-dev)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 194,
+      "score": 0.388
+    },
+    {
+      "submission": "20240728_sweagent_gpt4o",
+      "submission_date": "20240728",
+      "info_name": "SWE-agent + GPT 4o (2024-05-13)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-05-13",
+      "resolved": 116,
+      "score": 0.232
+    },
+    {
+      "submission": "20240820_epam-ai-run-gpt-4o",
+      "submission_date": "20240820",
+      "info_name": "EPAM AI/Run Developer Agent + GPT4o",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-08-06",
+      "resolved": 120,
+      "score": 0.24
+    },
+    {
+      "submission": "20240820_honeycomb",
+      "submission_date": "20240820",
+      "info_name": "Honeycomb",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 203,
+      "score": 0.406
+    },
+    {
+      "submission": "20240824_gru",
+      "submission_date": "20240824",
+      "info_name": "Gru(2024-08-24)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 226,
+      "score": 0.452
+    },
+    {
+      "submission": "20240918_lingma-agent_lingma-swe-gpt-72b",
+      "submission_date": "20240918",
+      "info_name": "Lingma Agent + Lingma SWE-GPT 72b (v0918)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 125,
+      "score": 0.25
+    },
+    {
+      "submission": "20240918_lingma-agent_lingma-swe-gpt-7b",
+      "submission_date": "20240918",
+      "info_name": "Lingma Agent + Lingma SWE-GPT 7b (v0918)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 51,
+      "score": 0.102
+    },
+    {
+      "submission": "20240920_solver",
+      "submission_date": "20240920",
+      "info_name": "Solver (2024-09-12)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 218,
+      "score": 0.436
+    },
+    {
+      "submission": "20240924_solver",
+      "submission_date": "20240924",
+      "info_name": "Solver (2024-09-12)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 227,
+      "score": 0.454
+    },
+    {
+      "submission": "20241001_nfactorial",
+      "submission_date": "20241001",
+      "info_name": "nFactorial (2024-10-01)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 129,
+      "score": 0.258
+    },
+    {
+      "submission": "20241002_lingma-agent_lingma-swe-gpt-72b",
+      "submission_date": "20241002",
+      "info_name": "Lingma Agent + Lingma SWE-GPT 72b (v0925)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 144,
+      "score": 0.288
+    },
+    {
+      "submission": "20241002_lingma-agent_lingma-swe-gpt-7b",
+      "submission_date": "20241002",
+      "info_name": "Lingma Agent + Lingma SWE-GPT 7b (v0925)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 91,
+      "score": 0.182
+    },
+    {
+      "submission": "20241007_nfactorial",
+      "submission_date": "20241007",
+      "info_name": "nFactorial (2024-10-07)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 158,
+      "score": 0.316
+    },
+    {
+      "submission": "20241016_composio_swekit",
+      "submission_date": "20241016",
+      "info_name": "Composio SWEkit + Claude 3.5 Sonnet (2024-10-16)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 203,
+      "score": 0.406
+    },
+    {
+      "submission": "20241016_epam-ai-run-gpt-4o",
+      "submission_date": "20241016",
+      "info_name": "EPAM AI/Run Developer Agent + GPT4o",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-08-06",
+      "resolved": 135,
+      "score": 0.27
+    },
+    {
+      "submission": "20241022_tools_claude-3-5-haiku",
+      "submission_date": "20241022",
+      "info_name": "Tools + Claude 3.5 Haiku",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-haiku-20240307",
+      "resolved": 203,
+      "score": 0.406
+    },
+    {
+      "submission": "20241022_tools_claude-3-5-sonnet-updated",
+      "submission_date": "20241022",
+      "info_name": "Tools + Claude 3.5 Sonnet (2024-10-22)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 245,
+      "score": 0.49
+    },
+    {
+      "submission": "20241023_emergent",
+      "submission_date": "20241023",
+      "info_name": "Emergent E1 (v2024-10-12)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 233,
+      "score": 0.466
+    },
+    {
+      "submission": "20241025_composio_swekit",
+      "submission_date": "20241025",
+      "info_name": "Composio SWE-Kit (2024-10-25)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 243,
+      "score": 0.486
+    },
+    {
+      "submission": "20241028_agentless-1.5_gpt4o",
+      "submission_date": "20241028",
+      "info_name": "Agentless-1.5 + GPT 4o (2024-05-13)",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-4o-2024-05-13",
+      "resolved": 194,
+      "score": 0.388
+    },
+    {
+      "submission": "20241028_solver",
+      "submission_date": "20241028",
+      "info_name": "Solver (2024-10-28)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 250,
+      "score": 0.5
+    },
+    {
+      "submission": "20241029_OpenHands-CodeAct-2.1-sonnet-20241022",
+      "submission_date": "20241029",
+      "info_name": "OpenHands + CodeAct v2.1 (claude-3-5-sonnet-20241022)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 265,
+      "score": 0.53
+    },
+    {
+      "submission": "20241029_epam-ai-run-claude-3-5-sonnet",
+      "submission_date": "20241029",
+      "info_name": "EPAM AI/Run Developer Agent v20241029 + Anthopic Claude 3.5 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 198,
+      "score": 0.396
+    },
+    {
+      "submission": "20241030_nfactorial",
+      "submission_date": "20241030",
+      "info_name": "nFactorial (2024-10-30)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 208,
+      "score": 0.416
+    },
+    {
+      "submission": "20241105_nfactorial",
+      "submission_date": "20241105",
+      "info_name": "nFactorial (2024-11-05)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 246,
+      "score": 0.492
+    },
+    {
+      "submission": "20241106_navie-2-gpt4o-sonnet",
+      "submission_date": "20241106",
+      "info_name": "AppMap Navie v2",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 236,
+      "score": 0.472
+    },
+    {
+      "submission": "20241108_autocoderover-v2.0-claude-3-5-sonnet-20241022",
+      "submission_date": "20241108",
+      "info_name": "AutoCodeRover-v2.0 (Claude-3.5-Sonnet-20241022)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 231,
+      "score": 0.462
+    },
+    {
+      "submission": "20241108_devlo",
+      "submission_date": "20241108",
+      "info_name": "devlo",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 271,
+      "score": 0.542
+    },
+    {
+      "submission": "20241113_nebius-search-open-weight-models-11-24",
+      "submission_date": "20241113",
+      "info_name": "Nebius AI Qwen 2.5 72B Generator + LLama 3.1 70B Critic",
+      "hf_model_id": null,
+      "tags_model_raw": "Llama 3.1",
+      "resolved": 203,
+      "score": 0.406
+    },
+    {
+      "submission": "20241120_artemis_agent",
+      "submission_date": "20241120",
+      "info_name": "Artemis Agent v1 (2024-11-20)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 160,
+      "score": 0.32
+    },
+    {
+      "submission": "20241125_enginelabs",
+      "submission_date": "20241125",
+      "info_name": "Engine Labs (2024-11-25)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 259,
+      "score": 0.518
+    },
+    {
+      "submission": "20241125_marscode-agent-dev",
+      "submission_date": "20241125",
+      "info_name": "Bytedance MarsCode Agent",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 250,
+      "score": 0.5
+    },
+    {
+      "submission": "20241128_SWE-Fixer_Qwen2.5-7b-retriever_Qwen2.5-72b-editor_20241128",
+      "submission_date": "20241128",
+      "info_name": "SWE-Fixer (Qwen2.5-7b retriever + Qwen2.5-72b editor) 20241128",
+      "hf_model_id": null,
+      "tags_model_raw": "Qwen 2.5",
+      "resolved": 151,
+      "score": 0.302
+    },
+    {
+      "submission": "20241202_agentless-1.5_claude-3.5-sonnet-20241022",
+      "submission_date": "20241202",
+      "info_name": "Agentless-1.5 + Claude-3.5 Sonnet (20241022)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 254,
+      "score": 0.508
+    },
+    {
+      "submission": "20241202_amazon-q-developer-agent-20241202-dev",
+      "submission_date": "20241202",
+      "info_name": "Amazon Q Developer Agent (v20241202-dev)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 275,
+      "score": 0.55
+    },
+    {
+      "submission": "20241208_gru",
+      "submission_date": "20241208",
+      "info_name": "Gru(2024-12-08)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 285,
+      "score": 0.57
+    },
+    {
+      "submission": "20241212_epam-ai-run-claude-3-5-sonnet",
+      "submission_date": "20241212",
+      "info_name": "EPAM AI/Run Developer Agent v20241212 + Anthopic Claude 3.5 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 277,
+      "score": 0.554
+    },
+    {
+      "submission": "20241212_google_jules_gemini_2.0_flash_experimental",
+      "submission_date": "20241212",
+      "info_name": "Google Jules + Gemini 2.0 Flash (v20241212-experimental)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 261,
+      "score": 0.522
+    },
+    {
+      "submission": "20241213_devlo",
+      "submission_date": "20241213",
+      "info_name": "devlo",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 291,
+      "score": 0.582
+    },
+    {
+      "submission": "20241221_codestory_midwit_claude-3-5-sonnet_swe-search",
+      "submission_date": "20241221",
+      "info_name": "CodeStory Midwit Agent + swe-search",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 311,
+      "score": 0.622
+    },
+    {
+      "submission": "20241223_emergent",
+      "submission_date": "20241223",
+      "info_name": "Emergent E1 (v2024-12-23)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 286,
+      "score": 0.572
+    },
+    {
+      "submission": "20250110_blackboxai_agent_v1.1",
+      "submission_date": "20250110",
+      "info_name": "Blackbox AI Agent",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 314,
+      "score": 0.628
+    },
+    {
+      "submission": "20250110_learn_by_interact_claude3.5",
+      "submission_date": "20250110",
+      "info_name": "Learn-by-interact",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 301,
+      "score": 0.602
+    },
+    {
+      "submission": "20250112_ugaiforge",
+      "submission_date": "20250112",
+      "info_name": "ugaiforge",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 208,
+      "score": 0.416
+    },
+    {
+      "submission": "20250117_wandb_programmer_o1_crosscheck5",
+      "submission_date": "20250117",
+      "info_name": "W&B Programmer O1 crosscheck5",
+      "hf_model_id": null,
+      "tags_model_raw": "o1-preview",
+      "resolved": 323,
+      "score": 0.646
+    },
+    {
+      "submission": "20250118_codeshellagent_gemini_2.0_flash_experimental",
+      "submission_date": "20250118",
+      "info_name": "CodeShellAgent + Gemini 2.0 Flash (Experimental)",
+      "hf_model_id": null,
+      "tags_model_raw": "gemini-2.0-flash-exp",
+      "resolved": 221,
+      "score": 0.442
+    },
+    {
+      "submission": "20250120_Bracket",
+      "submission_date": "20250120",
+      "info_name": "Bracket.sh",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 266,
+      "score": 0.532
+    },
+    {
+      "submission": "20250122_autocoderover-v2.1-claude-3-5-sonnet-20241022",
+      "submission_date": "20250122",
+      "info_name": "AutoCodeRover-v2.1 (Claude-3.5-Sonnet-20241022)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 258,
+      "score": 0.516
+    },
+    {
+      "submission": "20250203_openhands_4x_scaled",
+      "submission_date": "20250203",
+      "info_name": "OpenHands + 4x Scaled (2024-02-03)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 304,
+      "score": 0.608
+    },
+    {
+      "submission": "20250206_agentscope",
+      "submission_date": "20250206",
+      "info_name": "AgentScope",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 317,
+      "score": 0.634
+    },
+    {
+      "submission": "20250214_agentless_lite_o3_mini",
+      "submission_date": "20250214",
+      "info_name": "Agentless Lite + O3 Mini (20250214)",
+      "hf_model_id": null,
+      "tags_model_raw": "o3-mini",
+      "resolved": 212,
+      "score": 0.424
+    },
+    {
+      "submission": "20250224_tools_claude-3-7-sonnet",
+      "submission_date": "20250224",
+      "info_name": "Tools + Claude 3.7 Sonnet (2025-02-24)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 316,
+      "score": 0.632
+    },
+    {
+      "submission": "20250225_sweagent_claude-3-7-sonnet",
+      "submission_date": "20250225",
+      "info_name": "SWE-agent + Claude 3.7 Sonnet w/ Review Heavy",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-7-sonnet-20250219",
+      "resolved": 312,
+      "score": 0.624
+    },
+    {
+      "submission": "20250226_swerl_llama3_70b",
+      "submission_date": "20250226",
+      "info_name": "SWE-RL (Llama3-SWE-RL-70B + Agentless Mini) (20250226)",
+      "hf_model_id": null,
+      "tags_model_raw": "Llama3-SWE-RL-70B",
+      "resolved": 206,
+      "score": 0.412
+    },
+    {
+      "submission": "20250228_epam-ai-run-claude-3-5-sonnet",
+      "submission_date": "20250228",
+      "info_name": "EPAM AI/Run Developer Agent v20250219 + Anthopic Claude 3.5 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-5-sonnet-20241022",
+      "resolved": 314,
+      "score": 0.628
+    },
+    {
+      "submission": "20250306_SWE-Fixer_Qwen2.5-7b-retriever_Qwen2.5-72b-editor",
+      "submission_date": "20250306",
+      "info_name": "SWE-Fixer (Qwen2.5-7b retriever + Qwen2.5-72b editor)",
+      "hf_model_id": null,
+      "tags_model_raw": "Qwen 2.5",
+      "resolved": 164,
+      "score": 0.328
+    },
+    {
+      "submission": "20250316_augment_agent_v0",
+      "submission_date": "20250316",
+      "info_name": "Augment Agent v0",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 327,
+      "score": 0.654
+    },
+    {
+      "submission": "20250405_amazon-q-developer-agent-20250405-dev",
+      "submission_date": "20250405",
+      "info_name": "Amazon Q Developer Agent (v20250405-dev)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 327,
+      "score": 0.654
+    },
+    {
+      "submission": "20250405_swe-rizzo_claude37",
+      "submission_date": "20250405",
+      "info_name": "SWE-Rizzo",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 283,
+      "score": 0.566
+    },
+    {
+      "submission": "20250410_cortexa",
+      "submission_date": "20250410",
+      "info_name": "Nemotron-CORTEXA",
+      "hf_model_id": null,
+      "tags_model_raw": "NV-EmbedCode",
+      "resolved": 291,
+      "score": 0.582
+    },
+    {
+      "submission": "20250415_openhands",
+      "submission_date": "20250415",
+      "info_name": "OpenHands",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 329,
+      "score": 0.658
+    },
+    {
+      "submission": "20250430_zencoder_ai",
+      "submission_date": "20250430",
+      "info_name": "Zencoder (2025-04-30)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-7-sonnet-20250219",
+      "resolved": 350,
+      "score": 0.7
+    },
+    {
+      "submission": "20250503_patchpilot-v1.1-o4-mini",
+      "submission_date": "20250503",
+      "info_name": "PatchPilot-v1.1",
+      "hf_model_id": null,
+      "tags_model_raw": "o4-mini",
+      "resolved": 323,
+      "score": 0.646
+    },
+    {
+      "submission": "20250511_sweagent_lm_32b",
+      "submission_date": "20250511",
+      "info_name": "SWE-agent + SWE-agent-LM-32B",
+      "hf_model_id": null,
+      "tags_model_raw": "Qwen 2.5",
+      "resolved": 201,
+      "score": 0.402
+    },
+    {
+      "submission": "20250514_aime_coder",
+      "submission_date": "20250514",
+      "info_name": "Aime-coder v1 + Anthopic Claude 3.7 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-7-sonnet-20250219",
+      "resolved": 332,
+      "score": 0.664
+    },
+    {
+      "submission": "20250515_Refact_Agent",
+      "submission_date": "20250515",
+      "info_name": "Refact.ai Agent",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-7-sonnet-20250219",
+      "resolved": 352,
+      "score": 0.704
+    },
+    {
+      "submission": "20250516_cortexa_o3",
+      "submission_date": "20250516",
+      "info_name": "Nemotron-CORTEXA",
+      "hf_model_id": null,
+      "tags_model_raw": "NV-EmbedCode",
+      "resolved": 341,
+      "score": 0.682
+    },
+    {
+      "submission": "20250519_devlo",
+      "submission_date": "20250519",
+      "info_name": "devlo",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-3-7-sonnet-20250219",
+      "resolved": 351,
+      "score": 0.702
+    },
+    {
+      "submission": "20250519_trae",
+      "submission_date": "20250519",
+      "info_name": "TRAE",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 353,
+      "score": 0.706
+    },
+    {
+      "submission": "20250520_openhands_devstral_small",
+      "submission_date": "20250520",
+      "info_name": "OpenHands + DevStral Small 2505",
+      "hf_model_id": "mistralai/Devstral-Small-2505",
+      "tags_model_raw": "mistralai/Devstral-Small-2505",
+      "resolved": 234,
+      "score": 0.468
+    },
+    {
+      "submission": "20250522_sweagent_claude-4-sonnet-20250514",
+      "submission_date": "20250522",
+      "info_name": "SWE-agent + Claude 4 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250514",
+      "resolved": 333,
+      "score": 0.666
+    },
+    {
+      "submission": "20250522_tools_claude-4-opus",
+      "submission_date": "20250522",
+      "info_name": "Tools + Claude 4 Opus (2025-05-22)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-opus-20250514",
+      "resolved": 366,
+      "score": 0.732
+    },
+    {
+      "submission": "20250522_tools_claude-4-sonnet",
+      "submission_date": "20250522",
+      "info_name": "Tools + Claude 4 Sonnet (2025-05-22)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250514",
+      "resolved": 362,
+      "score": 0.724
+    },
+    {
+      "submission": "20250524_openhands_claude_4_sonnet",
+      "submission_date": "20250524",
+      "info_name": "OpenHands + Claude 4 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250514",
+      "resolved": 352,
+      "score": 0.704
+    },
+    {
+      "submission": "20250527_amazon.nova-premier-v1.0",
+      "submission_date": "20250527",
+      "info_name": "Amazon Nova Premier 1.0 (2025-04-30)",
+      "hf_model_id": null,
+      "tags_model_raw": "amazon.nova-premier-v1:0",
+      "resolved": 212,
+      "score": 0.424
+    },
+    {
+      "submission": "20250528_patchpilot_Co-PatcheR",
+      "submission_date": "20250528",
+      "info_name": "PatchPilot + Co-PatcheR",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 230,
+      "score": 0.46
+    },
+    {
+      "submission": "20250603_Refact_Agent_claude-4-sonnet",
+      "submission_date": "20250603",
+      "info_name": "Refact.ai Agent + Claude 4 Sonnet + o4-mini",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet",
+      "resolved": 372,
+      "score": 0.744
+    },
+    {
+      "submission": "20250610_augment_agent_v1",
+      "submission_date": "20250610",
+      "info_name": "Augment Agent v1",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 352,
+      "score": 0.704
+    },
+    {
+      "submission": "20250611_moatless_claude-4-sonnet-20250514",
+      "submission_date": "20250611",
+      "info_name": "Moatless Tools + Claude 4 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250514",
+      "resolved": 354,
+      "score": 0.708
+    },
+    {
+      "submission": "20250612_trae",
+      "submission_date": "20250612",
+      "info_name": "TRAE + Claude Sonnet 4 + Opus 4 + Sonnet 3.7 + Gemini 2.5 Pro",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250522",
+      "resolved": 376,
+      "score": 0.752
+    },
+    {
+      "submission": "20250616_Skywork-SWE-32B",
+      "submission_date": "20250616",
+      "info_name": "Skywork-SWE-32B",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 190,
+      "score": 0.38
+    },
+    {
+      "submission": "20250616_Skywork-SWE-32B+TTS_Bo8",
+      "submission_date": "20250616",
+      "info_name": "Skywork-SWE-32B + TTS(Bo8)",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 235,
+      "score": 0.47
+    },
+    {
+      "submission": "20250623_warp",
+      "submission_date": "20250623",
+      "info_name": "Warp",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4-20250514",
+      "resolved": 355,
+      "score": 0.71
+    },
+    {
+      "submission": "20250627_agentless_MCTS-Refine-7B",
+      "submission_date": "20250627",
+      "info_name": "MCTS-Refine-7B",
+      "hf_model_id": null,
+      "tags_model_raw": "MCTS-Refine-7B",
+      "resolved": 116,
+      "score": 0.232
+    },
+    {
+      "submission": "20250629_deepswerl_r2eagent",
+      "submission_date": "20250629",
+      "info_name": "DeepSWE-Preview",
+      "hf_model_id": "agentica-org/DeepSWE-Preview",
+      "tags_model_raw": "https://huggingface.co/agentica-org/DeepSWE-Preview",
+      "resolved": 211,
+      "score": 0.422
+    },
+    {
+      "submission": "20250629_deepswerl_r2eagent_tts",
+      "submission_date": "20250629",
+      "info_name": "DeepSWE-Preview + TTS(Bo16)",
+      "hf_model_id": "agentica-org/DeepSWE-Preview",
+      "tags_model_raw": "https://huggingface.co/agentica-org/DeepSWE-Preview",
+      "resolved": 294,
+      "score": 0.588
+    },
+    {
+      "submission": "20250710_bloop",
+      "submission_date": "20250710",
+      "info_name": "Bloop",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250514",
+      "resolved": 356,
+      "score": 0.712
+    },
+    {
+      "submission": "20250715_qodo_command",
+      "submission_date": "20250715",
+      "info_name": "Qodo Command",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4-20250514",
+      "resolved": 356,
+      "score": 0.712
+    },
+    {
+      "submission": "20250716_openhands_kimi_k2",
+      "submission_date": "20250716",
+      "info_name": "OpenHands + Kimi K2",
+      "hf_model_id": "moonshotai/Kimi-K2-Instruct",
+      "tags_model_raw": "moonshot/kimi-k2-0711-preview",
+      "resolved": 327,
+      "score": 0.654
+    },
+    {
+      "submission": "20250720_Lingxi-v1.5_claude-4-sonnet-20250514",
+      "submission_date": "20250720",
+      "info_name": "Lingxi-v1.5_claude-4-sonnet-20250514",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet-20250514",
+      "resolved": 373,
+      "score": 0.746
+    },
+    {
+      "submission": "20250725_sweagent_devstral_small_2507",
+      "submission_date": "20250725",
+      "info_name": "SWE-agent + DevStral Small 2507",
+      "hf_model_id": "mistralai/Devstral-Small-2507",
+      "tags_model_raw": "devstral-small-2507",
+      "resolved": 190,
+      "score": 0.38
+    },
+    {
+      "submission": "20250728_zai_glm4-5",
+      "submission_date": "20250728",
+      "info_name": "GLM-4.5",
+      "hf_model_id": "zai-org/GLM-4.5",
+      "tags_model_raw": "https://huggingface.co/zai-org/GLM-4.5",
+      "resolved": 321,
+      "score": 0.642
+    },
+    {
+      "submission": "20250731_harness_ai",
+      "submission_date": "20250731",
+      "info_name": "Harness AI",
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 374,
+      "score": 0.748
+    },
+    {
+      "submission": "20250804_codesweep_sweagent_kimi_k2_instruct",
+      "submission_date": "20250804",
+      "info_name": "CodeSweep - SWE-agent - Kimi K2 Instruct",
+      "hf_model_id": "moonshotai/Kimi-K2-Instruct",
+      "tags_model_raw": "kimi-k2-instruct",
+      "resolved": 267,
+      "score": 0.534
+    },
+    {
+      "submission": "20250804_epam-ai-run-claude-4-sonnet",
+      "submission_date": "20250804",
+      "info_name": "EPAM AI/Run Developer Agent v20250719 + Claude 4 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4-20250514",
+      "resolved": 384,
+      "score": 0.768
+    },
+    {
+      "submission": "20250805_openhands-Qwen3-Coder-30B-A3B-Instruct",
+      "submission_date": "20250805",
+      "info_name": "OpenHands + Qwen3-Coder-30B-A3B-Instruct",
+      "hf_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "tags_model_raw": "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "resolved": 258,
+      "score": 0.516
+    },
+    {
+      "submission": "20250805_openhands-Qwen3-Coder-480B-A35B-Instruct",
+      "submission_date": "20250805",
+      "info_name": "OpenHands + Qwen3-Coder-480B-A35B-Instruct",
+      "hf_model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+      "tags_model_raw": "https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct",
+      "resolved": 348,
+      "score": 0.696
+    },
+    {
+      "submission": "20250806_SWE-Exp_DeepSeek-V3",
+      "submission_date": "20250806",
+      "info_name": "SWE-Exp",
+      "hf_model_id": null,
+      "tags_model_raw": "DeepSeek-V3-0324",
+      "resolved": 210,
+      "score": 0.42
+    },
+    {
+      "submission": "20250807_openhands_gpt5",
+      "submission_date": "20250807",
+      "info_name": "OpenHands + GPT-5",
+      "hf_model_id": null,
+      "tags_model_raw": "openai/gpt-5-2025-08-07",
+      "resolved": 359,
+      "score": 0.718
+    },
+    {
+      "submission": "20250819_ACoder",
+      "submission_date": "20250819",
+      "info_name": "ACoder",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet",
+      "resolved": 382,
+      "score": 0.764
+    },
+    {
+      "submission": "20250901_entroPO_R2E_QwenCoder30BA3B",
+      "submission_date": "20250901",
+      "info_name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+      "hf_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "tags_model_raw": "Qwen3-Coder-30B-A3B-Instruct",
+      "resolved": 261,
+      "score": 0.522
+    },
+    {
+      "submission": "20250901_entroPO_R2E_QwenCoder30BA3B_tts",
+      "submission_date": "20250901",
+      "info_name": "EntroPO + R2E + Qwen3-Coder-30B-A3B-Instruct",
+      "hf_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "tags_model_raw": "Qwen3-Coder-30B-A3B-Instruct",
+      "resolved": 302,
+      "score": 0.604
+    },
+    {
+      "submission": "20250901_warp",
+      "submission_date": "20250901",
+      "info_name": "Warp",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-5",
+      "resolved": 378,
+      "score": 0.756
+    },
+    {
+      "submission": "20250902_atlassian-rovo-dev",
+      "submission_date": "20250902",
+      "info_name": "Atlassian Rovo Dev (2025-09-02)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4-20250514",
+      "resolved": 384,
+      "score": 0.768
+    },
+    {
+      "submission": "20250915_JoyCode",
+      "submission_date": "20250915",
+      "info_name": "JoyCode + Claude 4 Sonnet + GPT-4.1",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-4-sonnet",
+      "resolved": 373,
+      "score": 0.746
+    },
+    {
+      "submission": "20250924_artemis_agent_v2",
+      "submission_date": "20250924",
+      "info_name": "Artemis Agent v2 (2025-09-24)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4-20250514",
+      "resolved": 285,
+      "score": 0.57
+    },
+    {
+      "submission": "20250928_trae_doubao_seed_code",
+      "submission_date": "20250928",
+      "info_name": "TRAE + Doubao-Seed-Code",
+      "hf_model_id": null,
+      "tags_model_raw": "Doubao-Seed-Code",
+      "resolved": 394,
+      "score": 0.788
+    },
+    {
+      "submission": "20250929_Prometheus_v1.2_gpt5",
+      "submission_date": "20250929",
+      "info_name": "Prometheus-v1.2 + GPT-5",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-5-2025-08-07",
+      "resolved": 356,
+      "score": 0.712
+    },
+    {
+      "submission": "20250930_zai_glm4-6",
+      "submission_date": "20250930",
+      "info_name": "GLM-4.6",
+      "hf_model_id": "zai-org/GLM-4.6",
+      "tags_model_raw": "https://huggingface.co/zai-org/GLM-4.6",
+      "resolved": 341,
+      "score": 0.682
+    },
+    {
+      "submission": "20251014_Lingxi_kimi_k2",
+      "submission_date": "20251014",
+      "info_name": "Lingxi v1.5 x Kimi K2",
+      "hf_model_id": "moonshotai/Kimi-K2-Instruct-0905",
+      "tags_model_raw": "kimi-k2-0905-preview",
+      "resolved": 356,
+      "score": 0.712
+    },
+    {
+      "submission": "20251015_Prometheus_v1.2.1_gpt5",
+      "submission_date": "20251015",
+      "info_name": "Prometheus-v1.2.1 + GPT-5",
+      "hf_model_id": null,
+      "tags_model_raw": "gpt-5-2025-08-07",
+      "resolved": 372,
+      "score": 0.744
+    },
+    {
+      "submission": "20251021_SalesforceAIResearch_SAGE_bash_only",
+      "submission_date": "20251021",
+      "info_name": "Salesforce AI Research SAGE (bash-only)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4.5",
+      "resolved": 365,
+      "score": 0.73
+    },
+    {
+      "submission": "20251103_SalesforceAIResearch_SAGE_OpenHands",
+      "submission_date": "20251103",
+      "info_name": "Salesforce AI Research SAGE (OpenHands)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4.5",
+      "resolved": 369,
+      "score": 0.738
+    },
+    {
+      "submission": "20251103_sonar-foundation-agent_claude-sonnet-4-5",
+      "submission_date": "20251103",
+      "info_name": "Sonar Foundation Agent + Claude 4.5 Sonnet",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-sonnet-4-5",
+      "resolved": 374,
+      "score": 0.748
+    },
+    {
+      "submission": "20251110_frogboss-32b",
+      "submission_date": "20251110",
+      "info_name": "FrogBoss-32B-2510",
+      "hf_model_id": null,
+      "tags_model_raw": "FrogBoss-32B-2510",
+      "resolved": 268,
+      "score": 0.536
+    },
+    {
+      "submission": "20251110_frogmini-14b",
+      "submission_date": "20251110",
+      "info_name": "FrogMini-14B-2510",
+      "hf_model_id": null,
+      "tags_model_raw": "FrogMini-14B-2510",
+      "resolved": 225,
+      "score": 0.45
+    },
+    {
+      "submission": "20251120_livesweagent_gemini-3-pro-preview",
+      "submission_date": "20251120",
+      "info_name": "live-SWE-agent + Gemini 3 Pro Preview (2025-11-18)",
+      "hf_model_id": null,
+      "tags_model_raw": "gemini-3-pro-preview",
+      "resolved": 387,
+      "score": 0.774
+    },
+    {
+      "submission": "20251127_openhands_claude-opus-4-5",
+      "submission_date": "20251127",
+      "info_name": null,
+      "hf_model_id": null,
+      "tags_model_raw": null,
+      "resolved": 388,
+      "score": 0.776
+    },
+    {
+      "submission": "20251205_sonar-foundation-agent_claude-opus-4-5",
+      "submission_date": "20251205",
+      "info_name": "Sonar Foundation Agent + Claude 4.5 Opus",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-opus-4-5",
+      "resolved": 396,
+      "score": 0.792
+    },
+    {
+      "submission": "20251215_livesweagent_claude-opus-4-5",
+      "submission_date": "20251215",
+      "info_name": "live-SWE-agent + Claude 4.5 Opus medium (20251101)",
+      "hf_model_id": null,
+      "tags_model_raw": "claude-opus-4-5-20251101",
+      "resolved": 396,
+      "score": 0.792
+    }
+  ]
+}

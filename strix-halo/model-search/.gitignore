@@ -1,0 +1,9 @@
+# Local enrich debug dir
+_enrich_work/
+
+
+# tmp from interrupted card fetches
+cards/*.tmp
+
+# bench_swebench.sh sparse-checkout cache
+.swebench_cache/
