@@ -1,8 +1,19 @@
 # MMQ tile/nwarp tuning for gfx1151 — port of PR #21344
 
-## Status (2026-05-14 — code dropped, re-port pending)
+## Status (2026-05-14 — re-ported against upstream's ternary `mmq.cuh`)
 
-**The `mmq.cuh` patch was dropped during the 2026-05-14 upstream rebase.** Upstream refactored `mmq.cuh` into ternary form (the old `if`-chain became a nested ternary in `get_mmq_x_max_host` etc.), and rather than carry the rebase-merged hybrid forward, the patch is being re-authored fresh against the new layout. Reintroduce the RDNA3.5 specials (`mmq_x_max=48`, `mmq_y=64`, `nwarps=4`) as **additions** to the ternaries, then re-bench against the Qwen 3.6 matrix in [qwen3.6-baseline.md](qwen3.6-baseline.md). All numbers below predate the 2026-05-14 rebase and are still the expected direction-of-win.
+**Patch re-applied fresh after the 2026-05-14 upstream rebase.** Upstream refactored `mmq.cuh` into nested-ternary form in `get_mmq_x_max_host`, `get_mmq_y_host`, and the surrounding helpers. The six edits map onto the new layout:
+
+| # | Function | Old form | New form |
+|--:|---|---|---|
+| 1 | `get_mmq_x_max_host` ([mmq.cuh:109](../ggml/src/ggml-cuda/mmq.cuh#L109)) | early-return `if RDNA3_5 → 48` | `GGML_CUDA_CC_IS_RDNA3_5(cc) ? 48 :` prepended to the ternary chain |
+| 2 | `get_mmq_x_max_device` ([:120](../ggml/src/ggml-cuda/mmq.cuh#L120)) | `#elif AMD_WMMA → #if RDNA3_5 48 #else 128 #endif` | split the combined `#if TURING_MMA \|\| AMD_WMMA → 128` into `#if TURING_MMA 128 #elif AMD_WMMA #if RDNA3_5 48 #else 128 #endif` |
+| 3 | `get_mmq_y_host` ([:149](../ggml/src/ggml-cuda/mmq.cuh#L149)) | `(RDNA1 \|\| RDNA3_5) ? 64 : 128` | inner ternary now reads `(GGML_CUDA_CC_IS_RDNA1(cc) \|\| GGML_CUDA_CC_IS_RDNA3_5(cc)) ? 64 : 128` |
+| 4 | `get_mmq_y_device` ([:165](../ggml/src/ggml-cuda/mmq.cuh#L165)) | `#if RDNA1 \|\| RDNA3_5 → 64` | one-token extension to existing `#if defined(RDNA1)` |
+| 5 | `mmq_get_nwarps_host` ([:305](../ggml/src/ggml-cuda/mmq.cuh#L305)) | early-return `if RDNA3_5 → 4` | `GGML_CUDA_CC_IS_RDNA3_5(cc) ? 4 :` prepended to existing ternary |
+| 6 | `mmq_get_nwarps_device` ([:316](../ggml/src/ggml-cuda/mmq.cuh#L316)) | `#if RDNA3_5 → 4 #else 8` | added inside the existing `#if AMD_MFMA \|\| AMD_WMMA` block |
+
+Net: +18/−6 lines vs upstream. **Re-bench against the [qwen3.6-baseline.md](qwen3.6-baseline.md) matrix before declaring kept.** The hypothesis and pre-rebase outcome numbers below are unchanged.
 
 ## Hypothesis
 
