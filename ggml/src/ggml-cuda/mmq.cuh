@@ -107,8 +107,7 @@ struct tile_x_sizes {
 };
 
 static int get_mmq_x_max_host(const int cc) {
-    return GGML_CUDA_CC_IS_RDNA3_5(cc) ? 48 :
-        (turing_mma_available(cc) || amd_wmma_available(cc)) ? 128 :
+    return (turing_mma_available(cc) || amd_wmma_available(cc)) ? 128 :
         GGML_CUDA_CC_IS_NVIDIA(cc) && ggml_cuda_highest_compiled_arch(cc) >= GGML_CUDA_CC_VOLTA ?
 #ifdef GGML_CUDA_FORCE_MMQ
             128                     : 64;
@@ -121,11 +120,7 @@ static constexpr __device__ int get_mmq_x_max_device() {
 #if defined(TURING_MMA_AVAILABLE)
     return 128;
 #elif defined(AMD_WMMA_AVAILABLE)
-#if defined(RDNA3_5)
-    return 48;
-#else
     return 128;
-#endif // defined(RDNA3_5)
 #else // defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
 
 #if defined(GGML_USE_HIP)
@@ -4072,7 +4067,10 @@ void mul_mat_q_case(ggml_backend_cuda_context & ctx, const mmq_args & args, cuda
     const int warp_size = ggml_cuda_info().devices[id].warp_size;
     const int nwarps    = mmq_get_nwarps_host(cc, warp_size);
 
-    const int mmq_x_max = get_mmq_x_max_host(cc);
+    int mmq_x_max = get_mmq_x_max_host(cc);
+    if (GGML_CUDA_CC_IS_RDNA3_5(cc) && args.expert_bounds != nullptr) {
+        mmq_x_max = 48;
+    }
     const int mmq_y = get_mmq_y_host(cc);
 
     int mmq_x_best  = 0;
