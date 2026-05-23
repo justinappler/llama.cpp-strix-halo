@@ -2,7 +2,7 @@
 
 ## Status
 
-**Pending bench.** This is a narrow port of the final shape of upstream PR
+**Kept after bench.** This is a narrow port of the final shape of upstream PR
 [#21344](https://github.com/ggml-org/llama.cpp/pull/21344) after the fork's
 2026-05-22 upstream rebase.
 
@@ -55,3 +55,22 @@ docker run --rm --entrypoint=/app/llama-bench \
 
 Decision rule: keep if pp512 improves outside the host's ~2% noise floor at
 any depth without regressing pp512 or tg128 at depth. Revert if d=16k regresses.
+
+## Outcome
+
+**Kept.** Qwen 3.6 35B-A3B Q4_K_XL, same bench knobs as above, build
+`3511e7d`:
+
+| test | e4184dbb (2026-05-14) | 3511e7d | delta |
+|---|---:|---:|---:|
+| pp512 @ d=0       | 1356.79 +/- 8.72  | 1350.31 +/- 7.27  | -0.5% |
+| pp512 @ d=2,048   | 1231.00 +/- 3.70  | 1261.93 +/- 4.56  | +2.5% |
+| pp512 @ d=8,192   | 1036.22 +/- 11.68 | 1085.56 +/- 16.49 | +4.8% |
+| pp512 @ d=16,384  |  862.44 +/- 8.49  |  916.76 +/- 4.62  | +6.3% |
+| tg128 @ d=0       |   47.64 +/- 0.16  |   47.25 +/- 0.06  | -0.8% |
+| tg128 @ d=2,048   |   47.32 +/- 0.17  |   46.96 +/- 0.15  | -0.8% |
+| tg128 @ d=8,192   |   46.14 +/- 0.18  |   45.79 +/- 0.15  | -0.8% |
+| tg128 @ d=16,384  |   44.53 +/- 0.15  |   44.25 +/- 0.15  | -0.6% |
+
+Decision rule passes: pp512 improves outside the host's usual noise floor at
+depth, with the largest gain at d=16k, and no meaningful tg128 regression.
