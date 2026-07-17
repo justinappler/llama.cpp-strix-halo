@@ -1,5 +1,12 @@
 # RDNA3.5 PP follow-up: dense-aware MMQ + TILE FA D=256
 
+> [!IMPORTANT]
+> **Split on the 2026-07-16 rebase.** The two halves of this commit went separate ways:
+> - **TILE FA D=256/ncols=32 override — still live.** Rebased clean onto upstream; `fattn-tile.cuh` was untouched by the MMQ refactor. Everything below about it still applies.
+> - **Dense/MoE MMQ split — dropped and re-ported.** Upstream [PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127) deleted `get_mmq_x_max_host`/`_device` and the `mul_mat_q_case` hook this used. The *semantics* survive (dense `J=128`, MoE `J<=48`) but now live as a `J_max` cap in `mul_mat_q_switch_J` — see **[mmq-rdna3_5-config-table.md](mmq-rdna3_5-config-table.md)**.
+>
+> The +6.3% pp@d=16k below was measured with both halves together on a code path that no longer exists; it has not been re-attributed since.
+
 ## Status
 
 **Kept after bench.** This is a narrow port of the final shape of upstream PR
