@@ -19,6 +19,7 @@ Markdown in this directory is the **lab notebook** for AMD Strix Halo (`gfx1151`
 | [`jg-cuda-fa-rdna3-4.md`](jg-cuda-fa-rdna3-4.md) | FA MMA_F16 D=256 enablement (JG cherry-pick + 1-line guard widen) — **held, not promoted 2026-05-01** after honest f16/f16-KV A/B showed pp regression at depth |
 | [`fa-rdna3-opsel-pair.md`](fa-rdna3-opsel-pair.md) | OPSEL-paired half2 accumulator port — **attempted, abandoned 2026-05-04** in test-backend-ops debugging spiral |
 | [`qwen3.6-baseline.md`](qwen3.6-baseline.md) | Qwen 3.6 35B-A3B baseline numbers |
+| [`qwen3.6-mtp.md`](qwen3.6-mtp.md) | Qwen 3.6 MTP runtime check — decode win, prompt-side cost |
 | [`codex-insights.md`](codex-insights.md) | Consolidated assistant read of the above |
 
 Deploy, Docker, and profiling automation live in [**server-configs** `services/llamacpp/profiling/`](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md).
