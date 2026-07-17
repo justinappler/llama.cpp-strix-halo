@@ -12,7 +12,9 @@ Markdown in this directory is the **lab notebook** for AMD Strix Halo (`gfx1151`
 | [`fa-dispatcher.md`](fa-dispatcher.md) | Flash-attention MMA path / gfx1151 gate |
 | [`uma-integrated.md`](uma-integrated.md) | `integrated = false` / UMA research |
 | [`rocm-config.md`](rocm-config.md) | ROCm env flags (hipBLASLt batching, unroll) |
-| [`mmq-rdna3_5.md`](mmq-rdna3_5.md) | MMQ tile tuning (PR #21344 port) |
+| [`mmq-rdna3_5.md`](mmq-rdna3_5.md) | MMQ tile tuning (PR #21344 port) — **code dropped 2026-07-16**, superseded by the config-table re-port |
+| [`mmq-rdna3_5-config-table.md`](mmq-rdna3_5-config-table.md) | RDNA3.5 MMQ config table — re-port onto upstream PR #24127; **ported 2026-07-16, bench pending** |
+| [`pp-rdna3_5-tile-mmq.md`](pp-rdna3_5-tile-mmq.md) | Dense MMQ + TILE FA D=256 follow-up — TILE FA half still live; MMQ half folded into the config-table re-port |
 | [`rocwmma-tuned.md`](rocwmma-tuned.md) | rocWMMA FA tuning (PR #16827 port) — **flag flipped back OFF 2026-04-27** after regression on Qwen 3.6 |
 | [`mmvq-rdna3_5.md`](mmvq-rdna3_5.md) | MMVQ routing notes |
 | [`tg-at-depth-regression.md`](tg-at-depth-regression.md) | TG-at-depth regression — **resolved upstream by #22298, 2026-04-27** |
@@ -21,5 +23,6 @@ Markdown in this directory is the **lab notebook** for AMD Strix Halo (`gfx1151`
 | [`qwen3.6-baseline.md`](qwen3.6-baseline.md) | Qwen 3.6 35B-A3B baseline numbers |
 | [`qwen3.6-mtp.md`](qwen3.6-mtp.md) | Qwen 3.6 MTP runtime check — decode win, prompt-side cost |
 | [`codex-insights.md`](codex-insights.md) | Consolidated assistant read of the above |
+| [`mmq-table-check.cpp`](mmq-table-check.cpp) | Host-side check that the RDNA3.5 MMQ table is well-formed and dispatches right — no ROCm needed |
 
 Deploy, Docker, and profiling automation live in [**server-configs** `services/llamacpp/profiling/`](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md).

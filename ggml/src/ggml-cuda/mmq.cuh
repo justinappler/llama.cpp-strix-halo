@@ -218,6 +218,7 @@ struct ggml_cuda_mmq_config {
 
 #include "mmq-config-cdna.cuh"
 #include "mmq-config-rdna2.cuh"
+#include "mmq-config-rdna3_5.cuh"
 #include "mmq-config-rdna4.cuh"
 
 #undef CASE
@@ -226,6 +227,9 @@ static __host__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(const ggml_type ty
     if (GGML_CUDA_CC_IS_AMD(cc)) {
         if (GGML_CUDA_CC_IS_CDNA(cc)) {
             return ggml_cuda_mmq_get_config_cdna(type, J, fallback);
+        }
+        if (GGML_CUDA_CC_IS_RDNA3_5(cc)) {
+            return ggml_cuda_mmq_get_config_rdna3_5(type, J, fallback);
         }
         if (amd_wmma_available(cc)) {
             return ggml_cuda_mmq_get_config_rdna4(type, J, fallback);
@@ -245,6 +249,8 @@ static constexpr __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(ggml_t
 #ifdef GGML_USE_HIP
 #ifdef CDNA
     return ggml_cuda_mmq_get_config_cdna(type, J, fallback);
+#elif defined(RDNA3_5)
+    return ggml_cuda_mmq_get_config_rdna3_5(type, J, fallback);
 #elif defined(AMD_WMMA_AVAILABLE)
     return ggml_cuda_mmq_get_config_rdna4(type, J, fallback);
 #else
@@ -1378,7 +1384,11 @@ void mul_mat_q_switch_J(ggml_backend_cuda_context & ctx, const mmq_args & args, 
     int J_best        = 0;
     int ntiles_J_best = INT_MAX;
 
-    for (int J = 8; J <= 128 && ntiles_J_best > 1; J += 8) {
+    // On RDNA3.5 the wide tiles pay off for dense/projection matmuls but regress MoE expert
+    // dispatch, where each expert covers only a slice of the rows.
+    const int J_max = GGML_CUDA_CC_IS_RDNA3_5(cc) && args.expert_bounds != nullptr ? 48 : 128;
+
+    for (int J = 8; J <= J_max && ntiles_J_best > 1; J += 8) {
         const ggml_cuda_mmq_config config = ggml_cuda_mmq_get_config(type, J, fallback, cc);
         if (config.type == GGML_TYPE_COUNT) {
             continue;
