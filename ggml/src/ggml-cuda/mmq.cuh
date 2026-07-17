@@ -1481,20 +1481,9 @@ void mul_mat_q_switch_J(ggml_backend_cuda_context & ctx, const mmq_args & args, 
     int J_best        = 0;
     int ntiles_J_best = INT_MAX;
 
-    constexpr int J_max = 128;
-
     // On RDNA3.5 the wide tiles pay off for dense/projection matmuls but regress MoE expert
-    // dispatch, where each expert covers only a slice of the rows. For routed MoE ncols_max is the
-    // worst case of a single expert receiving every token, so it never lets the search settle and
-    // drags it to the widest tile. Size the tile from the width a typical expert actually covers
-    // instead. launch_mul_mat_q still builds the grid from ncols_max, so coverage is unchanged.
-    int64_t ncols_tiling = args.ncols_max;
-    if (GGML_CUDA_CC_IS_RDNA3_5(cc) && args.expert_bounds != nullptr && args.nchannels_x > 0) {
-        const int64_t ncols_typical = (args.ncols_dst + args.nchannels_x - 1) / args.nchannels_x;
-        if (ncols_typical >= 1 && ncols_typical < J_max) {
-            ncols_tiling = std::min(ncols_tiling, ncols_typical);
-        }
-    }
+    // dispatch, where each expert covers only a slice of the rows.
+    const int J_max = GGML_CUDA_CC_IS_RDNA3_5(cc) && args.expert_bounds != nullptr ? 48 : 128;
 
     for (int J = 8; J <= J_max && ntiles_J_best > 1; J += 8) {
         const ggml_cuda_mmq_config config = ggml_cuda_mmq_get_config(type, J, fallback, cc);
@@ -1506,7 +1495,7 @@ void mul_mat_q_switch_J(ggml_backend_cuda_context & ctx, const mmq_args & args, 
             continue;
         }
 
-        const int ntiles_x = (ncols_tiling + config.J - 1) / config.J;
+        const int ntiles_x = (args.ncols_max + config.J - 1) / config.J;
 
         if (ntiles_x < ntiles_J_best) {
             J_best = J;
