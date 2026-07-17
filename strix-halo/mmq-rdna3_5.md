@@ -1,5 +1,10 @@
 # MMQ tile/nwarp tuning for gfx1151 — port of PR #21344
 
+> [!IMPORTANT]
+> **Superseded 2026-07-16. This doc is now measurement history, not a live patch.**
+> Upstream [PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127) deleted all six functions this patch edits (`get_mmq_x_max_*`, `get_mmq_y_*`, `mmq_get_nwarps_*`) and replaced them with per-arch config tables. The code was dropped on the 2026-07-16 rebase and re-ported as a dedicated RDNA3.5 table — see **[mmq-rdna3_5-config-table.md](mmq-rdna3_5-config-table.md)**.
+> The hypothesis, the source pointers, and every measurement below refer to a code path that no longer exists. The tuning *values* (`mmq_y=64`, `nwarps=4`, `mmq_x_max=48` for MoE) carried over intact; the line numbers and function names did not.
+
 ## Status (2026-05-14 — code dropped, re-port pending)
 
 **The `mmq.cuh` patch was dropped during the 2026-05-14 upstream rebase.** Upstream refactored `mmq.cuh` into ternary form (the old `if`-chain became a nested ternary in `get_mmq_x_max_host` etc.), and rather than carry the rebase-merged hybrid forward, the patch is being re-authored fresh against the new layout. Reintroduce the RDNA3.5 specials (`mmq_x_max=48`, `mmq_y=64`, `nwarps=4`) as **additions** to the ternaries, then re-bench against the Qwen 3.6 matrix in [qwen3.6-baseline.md](qwen3.6-baseline.md). All numbers below predate the 2026-05-14 rebase and are still the expected direction-of-win.
