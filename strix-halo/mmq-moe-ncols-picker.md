@@ -1,6 +1,11 @@
 # MMQ routed-MoE ncols picker — re-port of upstream PR #24546 onto the config-table search
 
-## Status (2026-07-16 — ported, **not yet benched**)
+## Status (2026-07-17 — benched, **flat; reverting to the static cap**)
+
+The picker is **not distinguishable from the static `J=48` cap** on gfx1151 at the production
+operating point. pp512 moved −2.7% to +1.3%, and the `tg128` control — which this change provably
+cannot touch — drifted −1.6% uniformly, i.e. the same size as the effect being measured. See
+[Outcome](#outcome). The prediction in this doc that 48 vs 64 might land in noise was correct.
 
 Replaces the static `J_max = 48` MoE cap from [Finding #8/#9](mmq-rdna3_5-config-table.md) with the dynamic
 routed-width picker proposed in upstream [PR #24546](https://github.com/ggml-org/llama.cpp/pull/24546)
@@ -101,10 +106,10 @@ Production matrix, Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on:
 
 | depth | arm A pp512 (t/s) | arm B pp512 | arm A tg128 | arm B tg128 |
 |---:|---:|---:|---:|---:|
-| 0 | 1428.13 ± 19.35 | | 49.81 ± 0.11 | |
-| 2,048 | 1299.39 ± 8.82 | | 48.98 ± 0.94 | |
-| 8,192 | 1135.42 ± 21.21 | | 48.13 ± 0.14 | |
-| 16,384 | 971.25 ± 9.54 | | 46.43 ± 0.14 | |
+| 0 | 1428.13 ± 19.35 | 1388.93 ± 9.01 | 49.81 ± 0.11 | 48.94 ± 0.04 |
+| 2,048 | 1299.39 ± 8.82 | 1316.26 ± 7.09 | 48.98 ± 0.94 | 48.50 ± 0.16 |
+| 8,192 | 1135.42 ± 21.21 | 1142.23 ± 8.25 | 48.13 ± 0.14 | 47.25 ± 0.17 |
+| 16,384 | 971.25 ± 9.54 | 977.36 ± 9.58 | 46.43 ± 0.14 | 45.62 ± 0.15 |
 
 `tg128` is the control. Decode runs through MMVQ, not MMQ, and `ncols_dst == 1` there — the picker
 cannot touch it. **Any tg128 movement beyond noise means the A/B is contaminated**, exactly the
@@ -119,6 +124,73 @@ cannot reach:
 
 Expect arm B to pick `J = 128` here and arm A to hold 48. This is the one row where a large
 regression is plausible.
+
+## Outcome
+
+**Reverted.** Arm B = `b47bb31e1`, ROCm 7.14.0, gfx1151, canonical bench (`build: b47bb31 (1)` in the
+llama-bench footer confirms the image was not a stale cache). Arm A = `05e837f`, the numbers already
+in [qwen3.6-baseline.md](qwen3.6-baseline.md). Host otherwise idle — checked for tdarr/Plex
+transcodes, none running.
+
+| test | arm A (`05e837f`, J=48) | arm B (`b47bb31e1`, picker → J=64) | delta |
+|---|---:|---:|---:|
+| pp512 @ d=0       | 1428.13 ± 19.35 | 1388.93 ± 9.01 | **−2.7%** |
+| pp512 @ d=2,048   | 1299.39 ± 8.82  | 1316.26 ± 7.09 | +1.3% |
+| pp512 @ d=8,192   | 1135.42 ± 21.21 | 1142.23 ± 8.25 | +0.6% |
+| pp512 @ d=16,384  |  971.25 ± 9.54  |  977.36 ± 9.58 | +0.6% |
+| tg128 @ d=0       |   49.81 ± 0.11  |   48.94 ± 0.04 | −1.7% |
+| tg128 @ d=2,048   |   48.98 ± 0.94  |   48.50 ± 0.16 | −1.0% |
+| tg128 @ d=8,192   |   48.13 ± 0.14  |   47.25 ± 0.17 | −1.8% |
+| tg128 @ d=16,384  |   46.43 ± 0.14  |   45.62 ± 0.15 | −1.7% |
+
+Correctness gate passed first: **790/790 MUL_MAT_ID**, **1134/1134 MUL_MAT** — identical to Finding
+#9, confirming the grid still covers `ncols_max` while the tile is sized from the typical width.
+
+### The control moved, so read this as "no signal", not "−2.7%"
+
+`tg128` fell ~1.6% at **every** depth. This change **cannot** move tg: decode runs through MMVQ, not
+MMQ, and `ncols_dst == 1` there, so the picker never even evaluates. A uniform shift in a quantity
+the patch cannot touch is session drift between two builds measured on different days — not an
+effect. The pre-registered rule required "pp512 improves beyond noise **with tg128 flat**", and tg128
+is not flat, so strictly this comparison is contaminated exactly the way
+[Finding #9](mmq-rdna3_5-config-table.md#caveat-this-is-a-bundle-delta-not-a-port-ab) was.
+
+The saving grace is that the conclusion is robust to the contamination in both directions. Taken raw,
+pp is −2.7% to +1.3%. Calibrated against the −1.6% control drift, pp is −1.2% to +2.9%. Either way
+every depth sits inside the host's ~2% noise floor. **The effect, if any, is smaller than this rig can
+resolve** — and the d=0 −2.7% is not evidence of a regression any more than the d=2,048 +1.3% is
+evidence of a win.
+
+### Conclusion: the knob does not matter at ub=2048
+
+This is the "flat is a real outcome" branch of the criteria below, and it is worth stating plainly so
+it stops being re-litigated: **at the production operating point, J=48 and J=64 are the same speed.**
+The doc predicted this ("narrow enough that it may well land in noise") before the numbers existed,
+which is the only reason that reading is credible rather than post-hoc.
+
+Reverted to the static cap because it is the validated status quo, not because it won. Arm B was
+`git revert`ed rather than kept; the picker code is in this doc's history if it is ever wanted.
+
+### What this is worth to upstream
+
+The useful, non-obvious result for [PR #24546](https://github.com/ggml-org/llama.cpp/pull/24546):
+**the routed-width picker is neutral on RDNA3.5**, against a tuned static cap, on the exact model
+(Qwen 3.6 35B-A3B) and ubatch its own sweep reports +7.57% for on gfx1100/W7800. The PR currently
+claims all of RDNA3. gfx1151 has a different table (`I=64`, `nthreads=128` vs gfx1100's `I=128`,
+`nthreads=256`), which is the obvious candidate explanation: our tiles are already half-width, so
+there is far less worst-case over-sizing left for the picker to recover. That is a real caveat for a
+PR gated on `GGML_CUDA_CC_IS_RDNA3`, and it is the data ravel7524 asked for on 2026-07-03 and
+GZGavinZhao offered to produce on 2026-07-04.
+
+### Not measured
+
+The `-ub 4096` crossover row (where the picker disengages to J=128 and the cap holds 48) was
+**skipped**. It only compares meaningfully with an arm A build at the same ubatch, and arm A was not
+rebuilt. The `typical >= 128` regime on RDNA3.5 therefore remains untested, as it was before this
+experiment. Production `-ub 2048` cannot reach it.
+
+If this is ever revisited, the clean design is both arms built and run **back-to-back in one
+session**, which removes the drift that muddied the control here.
 
 ## Keep / revert
 

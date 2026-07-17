@@ -13,8 +13,6 @@
 //
 // Keep the CASE macro and ggml_cuda_mmq_config below in sync with mmq.cuh if upstream
 // changes them; a silent drift here turns this check into a rubber stamp.
-#include <algorithm>
-#include <cstdint>
 #include <cstdio>
 #include <set>
 #include <tuple>
@@ -64,35 +62,17 @@ struct ggml_cuda_mmq_config {
 #undef CASE
 
 // Mirrors mul_mat_q_switch_J's selection loop (shared-memory filter omitted).
-// ncols_dst/nchannels_x are consulted only on the routed-MoE path, as in mmq.cuh.
-static int pick_J(ggml_type type, bool fallback, bool is_moe, bool rdna3_5,
-                  int ncols_max, int ncols_dst = 0, int nchannels_x = 0) {
+static int pick_J(ggml_type type, bool fallback, bool is_moe, bool rdna3_5, int ncols_max) {
     int J_best = 0, ntiles_J_best = 1 << 30;
-    constexpr int J_max = 128;
-
-    int64_t ncols_tiling = ncols_max;
-    if (rdna3_5 && is_moe && nchannels_x > 0) {
-        const int64_t ncols_typical = (ncols_dst + nchannels_x - 1) / nchannels_x;
-        if (ncols_typical >= 1 && ncols_typical < J_max) {
-            ncols_tiling = std::min(ncols_tiling, ncols_typical);
-        }
-    }
-
+    const int J_max = rdna3_5 && is_moe ? 48 : 128;
     for (int J = 8; J <= J_max && ntiles_J_best > 1; J += 8) {
         auto cfg = rdna3_5 ? ggml_cuda_mmq_get_config_rdna3_5(type, J, fallback)
                            : ggml_cuda_mmq_get_config_rdna4(type, J, fallback);
         if (cfg.type == GGML_TYPE_COUNT) continue;
-        const int ntiles_x = (ncols_tiling + cfg.J - 1) / cfg.J;
+        const int ntiles_x = (ncols_max + cfg.J - 1) / cfg.J;
         if (ntiles_x < ntiles_J_best) { J_best = J; ntiles_J_best = ntiles_x; }
     }
     return J_best;
-}
-
-// Routed-MoE args as mmq.cu builds them: ncols_max=ne12 (worst case, one expert takes every
-// token), ncols_dst=ne12*n_expert_used, nchannels_x=n_experts.
-struct moe_shape { int ncols_max, ncols_dst, nchannels_x; };
-static moe_shape moe(int ubatch, int n_expert_used, int n_experts) {
-    return { ubatch, ubatch * n_expert_used, n_experts };
 }
 
 int main() {
@@ -150,41 +130,22 @@ int main() {
         }
     }
 
-    // 4. Routed-MoE picker sizes the tile from the typical expert width; dense is untouched.
-    //    Qwen 3.6 35B-A3B is 256 experts / 8 active, so at the production ub=2048 the typical
-    //    width is 2048*8/256 = 64 and the search should settle there rather than at the old
-    //    static cap of 48. See mmq-moe-ncols-picker.md.
+    // 4. MoE cap resolves to exactly 48 (not 32) for both fallback values; dense is unclamped.
     for (bool fb : {false, true}) {
-        const moe_shape s = moe(/*ubatch=*/2048, /*n_expert_used=*/8, /*n_experts=*/256);
-        int m     = pick_J(GGML_TYPE_Q4_K, fb, /*is_moe=*/true, /*rdna3_5=*/true,
-                           s.ncols_max, s.ncols_dst, s.nchannels_x);
+        int moe   = pick_J(GGML_TYPE_Q4_K, fb, /*is_moe=*/true,  /*rdna3_5=*/true, 4096);
         int dense = pick_J(GGML_TYPE_Q4_K, fb, /*is_moe=*/false, /*rdna3_5=*/true, 4096);
-        printf("Q4_K fallback=%d: MoE J=%d (typical=64), dense J=%d\n", (int)fb, m, dense);
-        if (m != 64)      { printf("FAIL: MoE J expected 64\n"); fails++; }
+        printf("Q4_K fallback=%d: MoE J=%d, dense J=%d\n", (int)fb, moe, dense);
+        if (moe != 48)    { printf("FAIL: MoE J expected 48\n"); fails++; }
         if (dense != 128) { printf("FAIL: dense J expected 128\n"); fails++; }
     }
 
-    // 4b. Crossover: at ub=4096 the typical width reaches 128, the picker disengages and the
-    //     search runs to the widest tile. This is the regime the old static cap held at 48 and
-    //     the one row of the bench matrix where a regression is plausible.
-    for (bool fb : {false, true}) {
-        const moe_shape s = moe(/*ubatch=*/4096, /*n_expert_used=*/8, /*n_experts=*/256);
-        int m = pick_J(GGML_TYPE_Q4_K, fb, true, true, s.ncols_max, s.ncols_dst, s.nchannels_x);
-        printf("Q4_K fallback=%d: MoE J=%d at ub=4096 (typical=128, picker disengaged)\n", (int)fb, m);
-        if (m != 128) { printf("FAIL: MoE J expected 128 above crossover\n"); fails++; }
-    }
-
-    // 5. Selection must never abort (J_best==0) for any type/fallback/shape, picker on or off.
+    // 5. Cap must never abort (J_best==0) for any type/fallback/ncols_max.
     for (ggml_type t : types) {
         for (bool fb : {false, true}) {
-            for (int ubatch : {1, 7, 8, 33, 512, 2048, 4096}) {
-                for (int n_experts : {8, 128, 256}) {
-                    const moe_shape s = moe(ubatch, /*n_expert_used=*/8, n_experts);
-                    if (pick_J(t, fb, true, true, s.ncols_max, s.ncols_dst, s.nchannels_x) == 0) {
-                        printf("FAIL: J_best=0 (GGML_ABORT) type=%d fb=%d ub=%d experts=%d\n",
-                               (int)t, (int)fb, ubatch, n_experts);
-                        fails++;
-                    }
+            for (int ncols : {1, 7, 8, 33, 512, 4096}) {
+                if (pick_J(t, fb, true, true, ncols) == 0) {
+                    printf("FAIL: J_best=0 (GGML_ABORT) type=%d fb=%d ncols=%d\n", (int)t, (int)fb, ncols);
+                    fails++;
                 }
             }
         }
