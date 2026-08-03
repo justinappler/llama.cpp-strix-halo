@@ -8,21 +8,18 @@ The aim is a reproducible, benchmarked set of changes that improve inference on 
 
 ## Where this fork stands
 
-> [!WARNING]
-> **These numbers predate the 2026-07-16 upstream rebase and no longer describe a build that exists.** That sync absorbed 234 upstream commits (including [PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127), which deleted the MMQ patch this table's prefill numbers depend on), switched to ROCm 7.14.0, and re-ported the MMQ tuning as a config table ([Finding #9](#strix-halo-findings)). The re-bench is **pending**; treat the table below as the last-known-good target to beat, not as current.
+Latest production bench, Qwen 3.6 35B-A3B Q4_K_XL on gfx1151 (commit `05e837f`, ROCm 7.14.0, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3`):
 
-Last production bench, Qwen 3.6 35B-A3B Q4_K_XL on gfx1151 (commit `3511e7d`, TheRock `7.13.0a20260514`, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3`):
+| depth   | pp512 (t/s)      | tg128 (t/s)   | vs prior build |
+| ------: | ---------------: | ------------: | -------------: |
+|       0 | 1428.13 ± 19.35  | 49.81 ± 0.11  | +5.8% / +5.4%  |
+|   2,048 | 1299.39 ± 8.82   | 48.98 ± 0.94  | +3.0% / +4.3%  |
+|   8,192 | 1135.42 ± 21.21  | 48.13 ± 0.14  | +4.6% / +5.1%  |
+|  16,384 |  971.25 ± 9.54   | 46.43 ± 0.14  | +5.9% / +4.9%  |
 
-| depth   | pp512 (t/s)      | tg128 (t/s)   |
-| ------: | ---------------: | ------------: |
-|       0 | 1350.31 ± 7.27   | 47.25 ± 0.06  |
-|   2,048 | 1261.93 ± 4.56   | 46.96 ± 0.15  |
-|   8,192 | 1085.56 ± 16.49  | 45.79 ± 0.15  |
-|  16,384 |  916.76 ± 4.62   | 44.25 ± 0.15  |
+Headline: **~971 t/s prefill at 16k depth**, **~46 t/s decode through the depth axis**. Every depth improved on the 2026-07-16 rebase and nothing regressed. Full bench config and the recovery story from earlier (pre-MMQ-port) baselines are in [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
 
-Headline: **~917 t/s prefill at 16k depth**, **~44 t/s decode through the depth axis**. Full bench config and the recovery story from earlier (pre-MMQ-port) baselines are in [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md); the A/B that validated the MMQ base is in [strix-halo/mmq-rdna3_5.md § Post-rebase re-bench](strix-halo/mmq-rdna3_5.md#post-rebase-re-bench-2026-05-14-build-e4184dbb), and the dense-MMQ/TILE FA follow-up is in [strix-halo/pp-rdna3_5-tile-mmq.md](strix-halo/pp-rdna3_5-tile-mmq.md).
-
-The bench plan that replaces these numbers is in [strix-halo/mmq-rdna3_5-config-table.md § Bench plan](strix-halo/mmq-rdna3_5-config-table.md#bench-plan) — two runs, port off then on, so the re-port is attributable separately from the ROCm and upstream bumps.
+The "vs prior build" column is a **bundle delta**, not a patch A/B — that build differs by 234 upstream commits, ROCm 7.13 → 7.14.0, *and* the MMQ config-table re-port ([Finding #9](#strix-halo-findings)). tg128 moving ~5% is the giveaway that much of it is upstream/ROCm, since MMQ tuning cannot move decode. See [mmq-rdna3_5-config-table.md § Outcome](strix-halo/mmq-rdna3_5-config-table.md#outcome) for what is and isn't attributable here.
 
 ## Strix Halo findings
 
@@ -36,7 +33,7 @@ The bench plan that replaces these numbers is in [strix-halo/mmq-rdna3_5-config-
 |   6 | [rocWMMA FA tuning for gfx1151 (port of PR #16827)](strix-halo/rocwmma-tuned.md)         | Flat at landing (2026-04-19) on Qwen 3.6 D=256; actively harmful at D=256 by 2026-04-27 (pp512@d=16k 244 vs 853 t/s with flag off). lhl's +35-65% D≤128 numbers were untested on this fork. | **Retired on 2026-05-14 upstream rebase.** Flag was already `GGML_HIP_ROCWMMA_FATTN=OFF` in production; upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) routes RDNA3 D>128 to the TILE kernel (not WMMA), so the rocWMMA path has no production effect on Qwen 3.6 A3B. Doc kept as postmortem. |
 |   7 | [FA MMA_F16 D=256 on RDNA3 (JG `cuda-fa-rdna3-4` cherry-pick + 1-line guard widen)](strix-halo/jg-cuda-fa-rdna3-4.md) | Regression at f16/f16 KV in production (pp512@d=16k 851 → 660 t/s, −22.5%) when held in 2026-05. Held branch was a cherry-pick of JG's WIP. | **Superseded by upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) (merged 2026-05-14).** JG's commit message: "For RDNA3/4 I was not able to get better performance than the tile kernel for head sizes > 128." Upstream chose the opposite direction from the held branch at D>128 — TILE, not MMA. Held branches `experiment/jg-fa-rdna3{,-tune}` are now archival; delete after this rebase pushes. |
 |   8 | [Dense-aware MMQ + TILE FA D=256 follow-up](strix-halo/pp-rdna3_5-tile-mmq.md)           | **+6.3% pp @ d=16k** vs the 2026-05-14 shipped build; d=0 flat; tg128 within noise (last measured 2026-05-22)           | **Split on the 2026-07-16 upstream rebase.** The TILE FA D=256/ncols=32 override rebased clean and is **kept** on master. The dense/MoE MMQ half was dropped with Finding #5 and re-ported into Finding #9 (it survives as the `J_max` cap). |
-|   9 | [RDNA3.5 MMQ config table (re-port onto PR #24127)](strix-halo/mmq-rdna3_5-config-table.md) | **Unmeasured.** Carries Findings #5 + #8's MMQ semantics onto upstream's new per-arch table (`I=64`, `nthreads=128`, MoE `J`≤48) | **Ported 2026-07-16, bench pending.** Table is verified well-formed and dispatching correctly, but has never run on gfx1151. `occupancy=2` is a guess — the knob did not exist before `__launch_bounds__` became mandatory. Gated on the two-run A/B in the doc. |
+|   9 | [RDNA3.5 MMQ config table (re-port onto PR #24127)](strix-halo/mmq-rdna3_5-config-table.md) | Carries Findings #5 + #8's MMQ semantics onto upstream's new per-arch table (`I=64`, `nthreads=128`, MoE `J`≤48). Bundle delta **+5.8% pp @ d=0, +5.9% pp @ d=16k**; port's own share **unmeasured** | **Kept** on master (commit `05e837f`). Correctness clean on real gfx1151 (`test-backend-ops`: 790/790 MUL_MAT_ID, 1134/1134 MUL_MAT). Port-off A/B skipped, so the gain is not attributed — tg128 rose ~5% and MMQ tuning cannot move decode, so much of it is upstream/ROCm. Kept because the rdna4 table gfx1151 would otherwise inherit is numerically identical to the pre-#24127 defaults the 2026-04 A/Bs beat by +27%/+37%. `occupancy=2` shipped unvalidated. |
 
 Topic docs, code pointers, and dead-end postmortems live under [`strix-halo/`](strix-halo/). A longer survey of optimization sites in the tree (HIP / Vulkan / CPU), numbered §1–10, is in [`strix-halo/NOTES.md`](strix-halo/NOTES.md); the **#n** tags in the next-experiments tables below refer to those sections.
 
