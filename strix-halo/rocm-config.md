@@ -10,7 +10,7 @@ The issue is still open upstream, but that is triage hygiene, not an open bug. *
 
 `ROCBLAS_USE_HIPBLASLT_BATCHED=0` is unaffected - it is a runtime env var, not a build flag, and it stays.
 
-**Bisect note:** if prefill regresses on the next bench, this removal is a suspect alongside upstream's `-ffast-math` removal. Restoring it is one line in the deploy Dockerfile.
+**Benched clear (2026-08-02, build `b73cfa4`).** Prefill was flat versus the previous build (+0.3% to +1.9%, mostly inside noise) with the flag gone, so removing it cost nothing measurable on Qwen 3.6 - consistent with the null A/B above and with the compiler bug being fixed. Upstream's `-ffast-math` removal rode along in the same build and is likewise clear. See [qwen3.6-baseline.md](qwen3.6-baseline.md#2026-08-02--post-rebase-re-bench-build-b73cfa4). Restoring the flag is one line in the deploy Dockerfile if a future model ever wants it.
 
 ---
 

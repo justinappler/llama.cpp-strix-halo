@@ -85,6 +85,14 @@ So gfx1151 on stock upstream now gets its own table but still runs rdna4's wide 
 
 The `mmq.cuh` diff shrank from +11/-1 to **+5/-1**: the dispatch is upstream's now, and the MoE `J` cap is all that is left.
 
+### Post-merge bench (2026-08-02, build `b73cfa4`)
+
+Prefill came back **flat** against `05e837f` (+0.3% to +1.9%, three of four depths inside the noise floor) while decode rose 3-4%. Full table in [qwen3.6-baseline.md](qwen3.6-baseline.md#2026-08-02--post-rebase-re-bench-build-b73cfa4).
+
+Flat prefill is the result this merge needed. The failure mode was losing the retune - if the values had not carried across to upstream's file, gfx1151 would have fallen back to rdna4's wide tiles at `J >= 48`, which the 2026-04 A/Bs measured at **-27% to -37%**. Nothing remotely that size appeared, across a window that also absorbed 136 upstream commits and two build-flag removals.
+
+This still is not the port-off A/B. It bounds the downside, not the upside: it says the tuning survived, not what the tuning is worth.
+
 ## Verification so far
 
 gfx1151 can't be compiled or benched from the dev host, so the table is checked by [`mmq-table-check.cpp`](mmq-table-check.cpp) — a standalone harness that stubs just enough of `mmq.cuh` to include the real config tables and reuse the real `CASE` macro under plain `clang++`:

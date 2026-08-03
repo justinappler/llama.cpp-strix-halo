@@ -87,6 +87,35 @@ The +15% pp512@d=0 in the regression-state numbers above (1,185 vs 1,029 in Run 
 
 The regression note initially flagged "escalating `amdgpu_amdkfd_restore_userptr_worker` activity" as consistent with userptr eviction stalls. Direct check during this investigation: `dmesg` shows zero firings of `amdgpu_amdkfd_restore_userptr_worker` since boot. The hypothesis is dead. The depth-proportional shape of the original regression was real but came from the rocWMMA FA path scaling worse with KV cache size, not from KV being paged out.
 
+## 2026-08-02 — post-rebase re-bench (build `b73cfa4`)
+
+Current headline numbers. Build `b73cfa4`, ROCm 7.14.0, canonical bench (f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`), no compose env vars — same shape as the `05e837f` run it replaces.
+
+| depth | pp512 (t/s) | tg128 (t/s) | pp vs `05e837f` | tg vs `05e837f` |
+| ------: | ---------------: | ------------: | ------: | ------: |
+|       0 | 1454.79 ± 3.52  | 51.37 ± 0.19 | +1.9% | +3.1% |
+|   2,048 | 1304.31 ± 11.52 | 51.02 ± 0.20 | +0.4% | +4.2% |
+|   8,192 | 1138.47 ± 20.30 | 49.68 ± 0.18 | +0.3% | +3.2% |
+|  16,384 |  986.05 ± 13.84 | 47.85 ± 0.19 | +1.5% | +3.1% |
+
+Nothing regressed. New bests at every depth on both axes; ~986 t/s prefill at d=16k and 51.4 t/s decode at d=0.
+
+### What this run actually tells us
+
+**Prefill is flat; decode moved.** Three of four pp deltas are inside the ±1.5-2% noise floor, and the fourth is at its edge. All four tg deltas are +3.1% to +4.2% with error bars of ±0.4%, so decode is unambiguously outside noise.
+
+That decoupling is the useful part. The previous bench moved pp and tg together (+5.8% / +5.4%), which is precisely why it could not be attributed. This one separates them:
+
+- **tg up ~3-4% is upstream's, not ours.** No patch this fork carries can move decode - MMQ tile tuning is prompt-side and decode goes through MMVQ, established by the 2026-04-19 A/B. The candidate flagged *before* this bench ran was [PR #26171](https://github.com/ggml-org/llama.cpp/pull/26171) (transpose-free gemmv, merged 2026-07-30), the one commit in the 136-commit window touching the gemv path that owns 71-77% of decode time per [kernel-time-breakdown.md](kernel-time-breakdown.md). Consistent, but not proven - no A/B was run.
+- **pp flat is the positive result for the MMQ port.** The port was rewritten onto upstream's own table in this window ([mmq-rdna3_5-config-table.md](mmq-rdna3_5-config-table.md#collision-with-pr-26199)). Had the retune been lost in that merge, gfx1151 would have fallen back to rdna4's wide tiles - historically worth **-27% to -37%** on prefill. Flat prefill across 136 upstream commits, a table reshape, and two build-flag removals means the tuning landed intact. This is weaker than a real A/B but stronger evidence than the last bench produced.
+- **Both flag removals are clear.** Dropping `-ffast-math` (upstream [PR #25495](https://github.com/ggml-org/llama.cpp/pull/25495)) and `--amdgpu-unroll-threshold-local=600` (ours, [rocm-config.md](rocm-config.md)) cost nothing measurable on prefill. Two of the three confounders flagged going into this bench are retired.
+
+Still not an A/B: the port-off control remains unrun, so the port's own share is still unmeasured. See [mmq-rdna3_5-config-table.md § Outcome](mmq-rdna3_5-config-table.md#outcome).
+
+### Flag deprecation to fix before it bites
+
+llama-bench now warns: `-mmp and --mmap are deprecated in favour of --load-mode`. The canonical bench still passes `-mmp 0` and the flag is still honoured, but it will eventually become a no-op, silently turning mmap **on** and changing TLB behaviour on the unified pool - a confounder that would look like a mysterious regression. Migrate the canonical command to `--load-mode direct` at the next convenient point, and re-baseline once when doing so.
+
 ## Related findings
 
 - [kv-cache.md](kv-cache.md) — why q8_0/q4_0 collapses at depth.
