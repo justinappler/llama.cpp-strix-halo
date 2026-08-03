@@ -8,18 +8,20 @@ Everything in this fork is meant to be measured. A change stays only if a benchm
 
 ## Where things stand
 
-Latest production benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV cache, FlashAttention on:
+Latest production benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV cache, FlashAttention on, build `b73cfa4` (2026-08-02):
 
 | context depth | prefill (tok/s) | decode (tok/s) |
 | ------------: | --------------: | -------------: |
-|             0 | 1428 | 49.8 |
-|         2,048 | 1299 | 49.0 |
-|         8,192 | 1135 | 48.1 |
-|        16,384 |  971 | 46.4 |
+|             0 | 1455 | 51.4 |
+|         2,048 | 1304 | 51.0 |
+|         8,192 | 1138 | 49.7 |
+|        16,384 |  986 | 47.9 |
 
-**About 971 tok/s of prefill at 16k of context, and decode that barely sags across the whole depth range.** That is the best this fork has measured. Full flags and history: [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
+**About 986 tok/s of prefill at 16k of context, and decode that barely sags across the whole depth range.** Best measured on every axis so far. Full flags and history: [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
 
-One caveat, stated plainly because it is easy to misread the numbers above: they came from a build that changed three things at once (234 upstream commits, a ROCm version bump, and our own MMQ retune). We never ran the control. The honest summary is "this build is the fastest we have measured", not "our patch is worth 5.8%". See [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
+Worth knowing how to read that: versus the previous build, **prefill is flat and decode is up about 3-4%**. The decode gain is almost certainly upstream's, not ours - nothing this fork patches can move decode. The flat prefill is the good news for our side: this build rewrote the matmul patch onto a new upstream file, and losing that tuning would have cost 27-37%, so flat means it landed intact.
+
+One caveat we keep repeating because it is easy to misread: we have still never run the control build with our patch removed. "Fastest we have measured" is honest; "our patch is worth X%" is not something these numbers can support. See [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
 
 ## What is actually patched
 
