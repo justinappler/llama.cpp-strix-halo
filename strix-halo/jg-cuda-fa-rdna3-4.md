@@ -155,7 +155,7 @@ Phase 2 (compile-error / additional-guard triage) is **not expected to fire**. I
 docker exec llamacpp /app/test-backend-ops test -o FLASH_ATTN_EXT 2>&1 | tee /tmp/fa-sweep.log
 ```
 
-(`test-backend-ops` from `/app/test-backend-ops` after flipping `LLAMA_BUILD_TESTS=ON` in [Dockerfile](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/files/Dockerfile) for the lab build. See [test-backend-ops.cpp:8598-8649](../tests/test-backend-ops.cpp#L8598-L8649) for the FA sweep matrix.)
+(`test-backend-ops` from `/app/test-backend-ops` after flipping `LLAMA_BUILD_TESTS=ON` in the deploy Dockerfile for the lab build. See [test-backend-ops.cpp:8598-8649](../tests/test-backend-ops.cpp#L8598-L8649) for the FA sweep matrix.)
 
 ### Result
 
@@ -207,8 +207,8 @@ git diff $(git merge-base upstream/master jg/<branch>)..jg/<branch> \
   > /tmp/jg.patch
 git apply --3way /tmp/jg.patch
 # resolve any conflicts in the RDNA config table
-# push to origin, bump server-configs llamacpp_version to the SHA, rebuild
-ssh lab.28r.net "docker exec llamacpp /app/test-backend-ops test -o FLASH_ATTN_EXT -b ROCm0"
+# push to origin, bump the deploy repo's llama.cpp version pin to the SHA, rebuild
+ssh <lab-host> "docker exec llamacpp /app/test-backend-ops test -o FLASH_ATTN_EXT -b ROCm0"
 ```
 
 Pass criteria for our use case: full FA sweep finishes (all `hsk ∈ {40..576}` × `nb ∈ {1, 3, 32, 75}` cases either OK or "not supported", no traps, no FAILs above NMSE 5e-4).
@@ -243,9 +243,9 @@ Statistically indistinguishable. Real Qwen 3.6 text doesn't exercise the failing
 
 ### Honest llama-bench A/B (2026-05-01) — production KV config
 
-The 2026-04-29 llama-bench in this doc compared patched output against [qwen3.6-baseline.md](qwen3.6-baseline.md) Run 1 (`767/209/76/43`, q8_0/q4_0 KV) — the pre-Finding-#1 config that's no longer production. At actual production state ([models.ini](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/files/models.ini) qwen3.6 → `cache-type-k=f16`, `cache-type-v=f16`), a controlled A/B on the same host with the same TheRock nightly tells a different story.
+The 2026-04-29 llama-bench in this doc compared patched output against [qwen3.6-baseline.md](qwen3.6-baseline.md) Run 1 (`767/209/76/43`, q8_0/q4_0 KV) — the pre-Finding-#1 config that's no longer production. At actual production state (qwen3.6 at `cache-type-k=f16`, `cache-type-v=f16`), a controlled A/B on the same host with the same TheRock nightly tells a different story.
 
-Bench config: [server-configs canonical bench](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md#canonical-bench-qwen-36-35b-a3b-on-gfx1151) — Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`.
+Bench config (canonical): Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`.
 
 | test           | A: `5d34ca3b` (pre-JG) | B: `82736929a` (JG cherry-pick + widen) |          Δ |
 | -------------- | ---------------------: | --------------------------------------: | ---------: |
@@ -282,7 +282,7 @@ The patch fails its own decision rule (any pp regression at depth → revert) wh
 
 The 2026-04-29 keep decision presented "+15.2× pp512 @ d=16k" by lining up patched f16-KV bench output against Run 1's q8/q4-KV numbers, which collapse for orthogonal reasons (Finding #1, V-quant-dominated). That's valid arithmetic but the wrong framing — A/B comparisons must be against the current production state, not whichever baseline column makes the headline biggest.
 
-Structural fix: canonical bench config is now pinned in [server-configs profiling/README.md](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md#canonical-bench-qwen-36-35b-a3b-on-gfx1151) with KV flags explicit (`-ctk f16 -ctv f16`) and a flag-rationale table. Cultural fix: any A/B that doesn't show its full bench command should be treated as suspect on this fork.
+Structural fix: the canonical bench config is now pinned in the deploy repo with KV flags explicit (`-ctk f16 -ctv f16`) and a flag-rationale table. Cultural fix: any A/B that doesn't show its full bench command should be treated as suspect on this fork.
 
 ### Mechanism (2026-05-03) — register pressure + scratch spills
 
@@ -302,7 +302,7 @@ Mapping to the bench shape:
 How to repro the static inspection (~5 min, no rebuild):
 
 ```bash
-ssh lab "docker exec llamacpp sh -c '/opt/rocm/lib/llvm/bin/llvm-objcopy --dump-section .hip_fatbin=/tmp/fb.bin /app/libggml-hip.so'"
+ssh <lab-host> "docker exec llamacpp sh -c '/opt/rocm/lib/llvm/bin/llvm-objcopy --dump-section .hip_fatbin=/tmp/fb.bin /app/libggml-hip.so'"
 # .hip_fatbin holds 128 concatenated CLANG_OFFLOAD_BUNDLE__ chunks (one per .cu TU).
 # Slice the bundle containing the symbol of interest, unbundle the gfx1151 ELF,
 # and read .num_vgpr / .private_seg_size / .num_sgpr from the symbol table.

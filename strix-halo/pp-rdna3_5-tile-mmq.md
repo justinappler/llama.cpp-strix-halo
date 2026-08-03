@@ -43,14 +43,14 @@ the D=256 TILE FA path used by Qwen 3.6 and Qwen3-Coder-Next on gfx1151.
 
 ## Bench Plan
 
-Use the canonical Qwen 3.6 bench from `server-configs/services/llamacpp`:
+Use the canonical Qwen 3.6 bench:
 
 ```bash
 docker run --rm --entrypoint=/app/llama-bench \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
   --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ipc host \
-  -v /srv/models:/models:ro \
+  -v <models-dir>:/models:ro \
   llamacpp-server:local \
     -m /models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
     -ctk f16 -ctv f16 \

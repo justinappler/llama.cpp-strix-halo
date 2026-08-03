@@ -38,7 +38,7 @@ docker run --rm --entrypoint=/app/llama-cli \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
   --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ipc host \
-  -v /srv/models:/models:ro \
+  -v <models-dir>:/models:ro \
   llamacpp-server:local \
     -m /models/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
     -ctk f16 -ctv f16 \

@@ -1,6 +1,6 @@
 # ROCm config flags — LLVM unroll + HIPBLASLT_BATCHED — null on Qwen 3.6
 
-**Status: bench null, kept on anyway.** Two community-recommended ROCm config flags for Strix Halo; no measurable change on our Qwen 3.6 Q4_K_XL config. They stay enabled in server-configs as AMD-recommended safety nets for other models / future ROCm versions, not as Strix Halo pp wins for this workload.
+**Status: bench null, kept on anyway.** Two community-recommended ROCm config flags for Strix Halo; no measurable change on our Qwen 3.6 Q4_K_XL config. They stay enabled in the deploy config as AMD-recommended safety nets for other models / future ROCm versions, not as Strix Halo pp wins for this workload.
 
 ## Background
 
@@ -40,7 +40,7 @@ Both are zero-risk for our config:
 - `-DCMAKE_HIP_FLAGS="-mllvm --amdgpu-unroll-threshold-local=600"` — the unroll-threshold override is a compiler hint, not a correctness change. Confirmed recovery on other models, no reported regressions on Q4_K.
 - `ROCBLAS_USE_HIPBLASLT_BATCHED=0` — AMD-recommended when `GGML_HIP_ROCWMMA_FATTN=OFF`. Our config hits that condition; following the recommendation is cheap insurance for other models we might load.
 
-Both flags live in server-configs, not this repo. Not part of the llama.cpp build tree.
+Both flags live in the deploy config, not this repo. Not part of the llama.cpp build tree.
 
 > [!NOTE]
 > **2026-08-02:** upstream [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046) deleted rocWMMA FlashAttention, so `GGML_HIP_ROCWMMA_FATTN` no longer exists. The condition attached to `ROCBLAS_USE_HIPBLASLT_BATCHED=0` above is now vacuously satisfied. Keep the flag on its own merits (bench-null here, AMD-recommended, cheap insurance) rather than on that reasoning.
