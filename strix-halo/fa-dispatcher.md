@@ -14,7 +14,7 @@ Reading [ggml/src/ggml-cuda/fattn.cu:307-505](../ggml/src/ggml-cuda/fattn.cu#L30
 
 1. `turing_mma_available(cc)` — NVIDIA Turing+, skipped.
 2. `volta_mma_available(cc)` — NVIDIA Volta, skipped.
-3. `ggml_cuda_should_use_wmma_fattn(cc)` — skipped because the build has `GGML_HIP_ROCWMMA_FATTN=OFF`. See [fattn-wmma-f16.cuh:26-49](../ggml/src/ggml-cuda/fattn-wmma-f16.cuh#L26-L49).
+3. `ggml_cuda_should_use_wmma_fattn(cc)` — skipped because the build has `GGML_HIP_ROCWMMA_FATTN=OFF`. Was `fattn-wmma-f16.cuh:26-49`; the file was deleted upstream by [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046).
 4. `amd_wmma_available(cc) && GGML_CUDA_CC_IS_RDNA4(cc)` — **false** for gfx1151; RDNA4-only gate. See [fattn.cu:454](../ggml/src/ggml-cuda/fattn.cu#L454).
 5. `amd_mfma_available(cc)` — CDNA only, skipped.
 6. **Fallthrough: TILE kernel** at [fattn.cu:505](../ggml/src/ggml-cuda/fattn.cu#L505).

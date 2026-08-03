@@ -101,7 +101,7 @@ By kernel at d=0: `mul_mat_vec_q<Q8_0>` (non-MoE variant) is 1122ms — **51% of
 
 ## Implications
 
-Ranked repricing of the [root README backlog](../README.md#strix-halo-next-experiments) against these shares:
+Ranked repricing of the [backlog](backlog.md) against these shares:
 
 1. **FA TILE tuning for gfx1151** (not currently a backlog item) — 32% of pp at d=16k and the only share that grows with depth; the agentic workload lives there. The kernel is `fattn-tile` with the fork's D=256/ncols=32 override already in place; a config sweep of its nwarps/cols-per-block for gfx1151, or upstream-watching for TILE improvements, is now the highest-ceiling pp work.
 2. **MMVQ dedicated RDNA3.5 entry** (backlog #1) — confirmed as the decode lever, and the profile sharpens it: whitelist **Q8_0 first** (51% of decode alone), then Q4_K/Q5_K. tg ceiling if MMVQ improves 15%: ~+11% tg.

@@ -1,6 +1,6 @@
 # UMA / `integrated = false` — researched, deprioritized
 
-**Status: researched, no patch.** Was flagged in [NOTES.md #1](NOTES.md#1-zero-copy-for-integrated-gpus-is-globally-disabled) as the likely-biggest Strix Halo win. After digging into what the flag actually gates, the Jetson precedent, and the HIP allocator behavior, the expected upside on gfx1151 looks narrow. Moving it below the other NOTES.md items.
+**Status: researched, no patch.** Was flagged in [NOTES.md #1](NOTES.md#1-zero-copy-for-integrated-gpus-is-globally-disabled--researched-deprioritized) as the likely-biggest Strix Halo win. After digging into what the flag actually gates, the Jetson precedent, and the HIP allocator behavior, the expected upside on gfx1151 looks narrow. Moving it below the other NOTES.md items.
 
 ## What `integrated = true` actually gates
 

@@ -35,7 +35,7 @@ Production workload: Qwen 3.6 35B-A3B Q4_K_XL on gfx1151 (Strix Halo, 40 CU RDNA
 # from the deploy repo's profiling directory
 PROFILER_CMD=rocprofv3 PROFILER_FLAGS="--hip-trace --kernel-trace -d ." ./profile.sh /app/llama-bench \
   -m /models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
-  -ctk f16 -ctv f16 -fa 1 -b 4096 -ub 2048 -ngl 999 -mmp 0 -p 0 -n 64 -r 1 -d 0
+  -ctk f16 -ctv f16 -fa 1 -b 4096 -ub 2048 -ngl 999 -lm none -p 0 -n 64 -r 1 -d 0
 ```
 
 In the resulting rocpd SQLite db, look for `hipGraphLaunch` / `hipStreamBeginCapture` / `hipGraphExecUpdate` in the HIP API tables and count them against generated tokens. Graphs engaged = ~1 `hipGraphLaunch` per token and ~1,500 fewer `hipLaunchKernel` calls per token. Zero graph API calls = not engaging (H2/H3/H4). Capture-every-token = warmup reset loop (H2).
@@ -62,17 +62,19 @@ Canonical bench (must match exactly — the deploy repo pins the rationale for e
 
 ```
 llama-bench -m .../Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf -ctk f16 -ctv f16 -fa 1 \
-  -b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384
+  -b 4096 -ub 2048 -ngl 999 -lm none -p 512 -n 128 -r 3 -d 0,2048,8192,16384
 ```
 
-Reference numbers (build `05e837f` ≡ current master, ROCm 7.14.0, host idle):
+`-lm none` replaced `-mmp 0` on 2026-08-02; they are equivalent, and the deprecation message llama-bench prints for `-mmp` is misleading. See [qwen3.6-baseline.md](qwen3.6-baseline.md#flag-deprecation---resolved-same-day).
+
+Reference numbers (build `b73cfa4` ≡ current master, ROCm 7.14.0, host idle):
 
 | depth | pp512 t/s | tg128 t/s |
 |---:|---:|---:|
-| 0 | 1428.13 ± 19.35 | 49.81 ± 0.11 |
-| 2,048 | 1299.39 ± 8.82 | 48.98 ± 0.94 |
-| 8,192 | 1135.42 ± 21.21 | 48.13 ± 0.14 |
-| 16,384 | 971.25 ± 9.54 | 46.43 ± 0.14 |
+| 0 | 1454.79 ± 3.52 | 51.37 ± 0.19 |
+| 2,048 | 1304.31 ± 11.52 | 51.02 ± 0.20 |
+| 8,192 | 1138.47 ± 20.30 | 49.68 ± 0.18 |
+| 16,384 | 986.05 ± 13.84 | 47.85 ± 0.19 |
 
 **Decision rule:** keep if tg128 improves beyond the ±2% host noise floor at every depth with pp512 flat (graphs shouldn't touch prefill — a pp move means contamination, see the control-drift lesson in [mmq-moe-ncols-picker.md](mmq-moe-ncols-picker.md)). The theoretical ceiling is ~+19% tg (full idle recovery); anything >+5% is a clear keep. Flat is a real outcome — record it and close H1.
 

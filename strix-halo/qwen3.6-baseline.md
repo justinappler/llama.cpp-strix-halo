@@ -112,9 +112,18 @@ That decoupling is the useful part. The previous bench moved pp and tg together 
 
 Still not an A/B: the port-off control remains unrun, so the port's own share is still unmeasured. See [mmq-rdna3_5-config-table.md § Outcome](mmq-rdna3_5-config-table.md#outcome).
 
-### Flag deprecation to fix before it bites
+### Flag deprecation - resolved same day
 
-llama-bench now warns: `-mmp and --mmap are deprecated in favour of --load-mode`. The canonical bench still passes `-mmp 0` and the flag is still honoured, but it will eventually become a no-op, silently turning mmap **on** and changing TLB behaviour on the unified pool - a confounder that would look like a mysterious regression. Migrate the canonical command to `--load-mode direct` at the next convenient point, and re-baseline once when doing so.
+llama-bench warns that `-mmp` is deprecated in favour of `--load-mode`. The canonical bench has been migrated to **`-lm none`**, which is the exact equivalent (`-mmp 0` parses to `LLAMA_LOAD_MODE_NONE`).
+
+Two traps worth recording:
+
+- **The deprecation message is wrong.** It says "Please use --load-mode mmap instead" no matter which value you passed. Following it after `-mmp 0` would turn mmap **on**, silently changing TLB behaviour on the unified pool - a confounder that would present as a mysterious regression. The valid values are `none`, `mmap`, `mlock`, `mmap+mlock`, `dio`; `dio` is direct I/O and is *not* a synonym for `none`.
+- **`mmap` is llama-bench's default**, so if `-mmp 0` ever becomes a true no-op rather than a warning, the bench flips to mmap silently.
+
+Verified equivalent before switching, same build and host: `-mmp 0` gave pp512 1454.79 ± 3.52 / tg128 51.37 ± 0.19, `-lm none` gave 1444.97 ± 13.45 / 51.35 ± 0.23. Inside noise on both axes, so **every prior baseline taken with `-mmp 0` stays directly comparable** - no re-baseline needed. The `lm` column in the results table reports the mode actually used; read it rather than trusting the flag.
+
+Historical bench commands elsewhere in `strix-halo/` still show `-mmp 0` and are left as written - they record what was actually run.
 
 ## Related findings
 
