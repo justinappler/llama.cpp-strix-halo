@@ -71,7 +71,7 @@ Files changed:
 
 | File | What |
 |---|---|
-| [ggml/src/ggml-cuda/fattn-wmma-f16.cu](../ggml/src/ggml-cuda/fattn-wmma-f16.cu) | `__launch_bounds__` min-blocks=2 on HIP+rocWMMA; `ggml_wmma_fattn_kq_stride<D>()` helper returning 128 for `D≤128` on HIP; plumb the adaptive stride through the kernel body and launcher; `nwarps=8` for `D≤96` |
+| `ggml/src/ggml-cuda/fattn-wmma-f16.cu` (deleted upstream 2026-07-24) | `__launch_bounds__` min-blocks=2 on HIP+rocWMMA; `ggml_wmma_fattn_kq_stride<D>()` helper returning 128 for `D≤128` on HIP; plumb the adaptive stride through the kernel body and launcher; `nwarps=8` for `D≤96` |
 | [ggml/src/ggml-cuda/fattn-tile.cuh](../ggml/src/ggml-cuda/fattn-tile.cuh) | Skip the `ncols2`-based TILE-variant pruning on HIP so we don't `__trap()` when decode lands on a pruned shape |
 | [ggml/src/ggml-cuda/fattn.cu](../ggml/src/ggml-cuda/fattn.cu) | HIP+rocWMMA-only branch in `ggml_cuda_get_best_fattn_kernel`: if `Q->ne[1] == 1` (decode), skip WMMA; mirror the TILE `ncols2`/`cols_per_block` prediction and fall back to VEC when the predicted shape has no config |
 
