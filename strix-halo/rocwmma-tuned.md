@@ -33,7 +33,7 @@ Re-benching against a D≤128 model (Llama 3.2, gpt-oss 20B, Qwen 2.5 dense, Phi
 
 ## Hypothesis
 
-On `gfx1151` the rocWMMA flash-attention path is currently a net loss at depth and so we keep `GGML_HIP_ROCWMMA_FATTN=OFF` in the Dockerfile (see [fa-dispatcher.md](fa-dispatcher.md) and the server-configs comment). With the flag off, every FA call routes to the generic TILE kernel, which has no tensor-core path on RDNA 3.5 — that's the biggest remaining piece of dead silicon on the chip.
+On `gfx1151` the rocWMMA flash-attention path is currently a net loss at depth and so we keep `GGML_HIP_ROCWMMA_FATTN=OFF` in the deploy Dockerfile (see [fa-dispatcher.md](fa-dispatcher.md)). With the flag off, every FA call routes to the generic TILE kernel, which has no tensor-core path on RDNA 3.5 — that's the biggest remaining piece of dead silicon on the chip.
 
 [lhl/llama.cpp rocm-wmma-tune](https://github.com/lhl/llama.cpp/tree/rocm-wmma-tune) (rejected upstream as [PR #16827](https://github.com/ggml-org/llama.cpp/pull/16827)) reshapes the existing rocWMMA FA kernel so that it can actually be enabled on Strix Halo:
 
@@ -79,10 +79,12 @@ All changes are `#if defined(GGML_USE_HIP) && defined(GGML_HIP_ROCWMMA_FATTN)`-g
 
 ## Build/bench knobs
 
-Two things change in server-configs on top of the usual `llamacpp_version` bump:
+Two things change in the deploy repo on top of the usual version-pin bump:
 
-1. Push to `origin` (the fork), then bump `llamacpp_version` to the new full SHA.
-2. `/Users/jappler/Projects/server-configs/services/llamacpp/files/Dockerfile` line 100: `-DGGML_HIP_ROCWMMA_FATTN=OFF` → `=ON`. The comment block above it (lines 96-99) explaining the ~100x slowdown is the reason we've had it off; replace it with a pointer to this doc noting that the tuning patch fixes the regression.
+1. Push to `origin` (the fork), then bump the llama.cpp version pin to the new full SHA.
+2. Flip `-DGGML_HIP_ROCWMMA_FATTN=OFF` to `=ON` in the deploy Dockerfile. The comment above it explaining the ~100x slowdown is the reason it has been off; replace it with a pointer to this doc noting that the tuning patch fixes the regression.
+
+> Historical only - upstream [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046) deleted this flag on 2026-07-24. See the status note at the top of this doc.
 
 ## Bench plan
 

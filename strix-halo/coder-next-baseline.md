@@ -26,7 +26,7 @@ Two consequences for this hardware:
    We do not unlock rocWMMA-tuned or any D≤128 path by switching to this model.
 2. **KV is small.** Per-token KV at f16/f16 is `2 × 12 × 2 × 256 × 2 B ≈ 24 KB`.
    At 262k ctx that's ~6.3 GB. At 128k, ~3.1 GB. The original `q8_0/q4_0` KV
-   config in [models.ini](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/files/models.ini)
+   config in the deploy repo's model config
    was inherited from Qwen 3.6 without measurement; there is no memory reason
    to pay the V-quant penalty kv-cache.md identified.
 
