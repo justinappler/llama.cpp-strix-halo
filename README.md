@@ -1,107 +1,95 @@
-# llama.cpp — Strix Halo fork
+# llama.cpp - Strix Halo fork
 
-Fork of [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) with experimental changes for **AMD Strix Halo** (`gfx1151`: RDNA 3.5 iGPU, Zen 5, unified LPDDR5x), targeting machines like the Framework Desktop with Ryzen AI Max.
+A fork of [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) that tunes inference for **AMD Strix Halo** - the `gfx1151` chip in machines like the Framework Desktop and other Ryzen AI Max boxes. It pairs an RDNA 3.5 integrated GPU with Zen 5 cores and one shared pool of LPDDR5x memory.
 
-## Strix Halo: goals
+The target workload is **agentic coding**: long prompts, deep context, and time-to-first-token that you actually feel. That means prefill speed at depth matters more here than raw decode speed on a short prompt.
 
-The aim is a reproducible, benchmarked set of changes that improve inference on this chip—especially **agentic coding** workloads where long-context prompt processing and time-to-first-token dominate.
+Everything in this fork is meant to be measured. A change stays only if a benchmark on real hardware says it should.
 
-## Where this fork stands
+## Where things stand
 
-Latest production bench, Qwen 3.6 35B-A3B Q4_K_XL on gfx1151 (commit `05e837f`, ROCm 7.14.0, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3`):
+Latest production benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV cache, FlashAttention on:
 
-| depth   | pp512 (t/s)      | tg128 (t/s)   | vs prior build |
-| ------: | ---------------: | ------------: | -------------: |
-|       0 | 1428.13 ± 19.35  | 49.81 ± 0.11  | +5.8% / +5.4%  |
-|   2,048 | 1299.39 ± 8.82   | 48.98 ± 0.94  | +3.0% / +4.3%  |
-|   8,192 | 1135.42 ± 21.21  | 48.13 ± 0.14  | +4.6% / +5.1%  |
-|  16,384 |  971.25 ± 9.54   | 46.43 ± 0.14  | +5.9% / +4.9%  |
+| context depth | prefill (tok/s) | decode (tok/s) |
+| ------------: | --------------: | -------------: |
+|             0 | 1428 | 49.8 |
+|         2,048 | 1299 | 49.0 |
+|         8,192 | 1135 | 48.1 |
+|        16,384 |  971 | 46.4 |
 
-Headline: **~971 t/s prefill at 16k depth**, **~46 t/s decode through the depth axis**. Every depth improved on the 2026-07-16 rebase and nothing regressed. Full bench config and the recovery story from earlier (pre-MMQ-port) baselines are in [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
+**About 971 tok/s of prefill at 16k of context, and decode that barely sags across the whole depth range.** That is the best this fork has measured. Full flags and history: [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
 
-The "vs prior build" column is a **bundle delta**, not a patch A/B — that build differs by 234 upstream commits, ROCm 7.13 → 7.14.0, *and* the MMQ config-table re-port ([Finding #9](#strix-halo-findings)). tg128 moving ~5% is the giveaway that much of it is upstream/ROCm, since MMQ tuning cannot move decode. See [mmq-rdna3_5-config-table.md § Outcome](strix-halo/mmq-rdna3_5-config-table.md#outcome) for what is and isn't attributable here.
+One caveat, stated plainly because it is easy to misread the numbers above: they came from a build that changed three things at once (234 upstream commits, a ROCm version bump, and our own MMQ retune). We never ran the control. The honest summary is "this build is the fastest we have measured", not "our patch is worth 5.8%". See [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
 
-## Strix Halo findings
+## What is actually patched
 
-|   # | Finding                                                                                  | Impact                                                                                                                 | Status                                                                                                                                                                                 |
-| --: | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   1 | [Quantized KV cache collapses throughput at depth](strix-halo/kv-cache.md)               | **17× pp @ d=16k** on Qwen 3.6; V-quant is the dominant cost                                                           | Config fix only; no patch needed                                                                                                                                                       |
-|   2 | [FA dispatcher gates RDNA3.5 out of MMA_F16 kernel](strix-halo/fa-dispatcher.md)         | Attempted 1-line patch; **abandoned**                                                                                  | See doc — blocked on MMA device code not compiled for gfx1151                                                                                                                          |
-|   3 | [UMA / `integrated = false`](strix-halo/uma-integrated.md)                               | Originally flagged as likely biggest win; research says otherwise                                                      | **Researched, deprioritized** — narrow on HIP APUs                                                                                                                                     |
-|   4 | [ROCm config flags: unroll-threshold + `HIPBLASLT_BATCHED=0`](strix-halo/rocm-config.md) | Community reports 2× pp on other models; null on Qwen 3.6                                                              | **Bench null, kept on** as AMD-recommended safety nets                                                                                                                                 |
-|   5 | [MMQ tile/nwarp tuning for gfx1151 (port of PR #21344)](strix-halo/mmq-rdna3_5.md)       | **+27% pp @ d=0, +17% pp @ d=16k** on Qwen 3.6 Q4_K_XL vs no-port; tg128 flat (last measured 2026-05-14)               | **Code dropped on the 2026-07-16 upstream rebase.** Upstream [PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127) deleted all six functions this patch edited. Re-ported as a config table — see Finding #9. Doc retained for the measurement history. |
-|   6 | [rocWMMA FA tuning for gfx1151 (port of PR #16827)](strix-halo/rocwmma-tuned.md)         | Flat at landing (2026-04-19) on Qwen 3.6 D=256; actively harmful at D=256 by 2026-04-27 (pp512@d=16k 244 vs 853 t/s with flag off). lhl's +35-65% D≤128 numbers were untested on this fork. | **Retired on 2026-05-14 upstream rebase.** Flag was already `GGML_HIP_ROCWMMA_FATTN=OFF` in production; upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) routes RDNA3 D>128 to the TILE kernel (not WMMA), so the rocWMMA path has no production effect on Qwen 3.6 A3B. Doc kept as postmortem. |
-|   7 | [FA MMA_F16 D=256 on RDNA3 (JG `cuda-fa-rdna3-4` cherry-pick + 1-line guard widen)](strix-halo/jg-cuda-fa-rdna3-4.md) | Regression at f16/f16 KV in production (pp512@d=16k 851 → 660 t/s, −22.5%) when held in 2026-05. Held branch was a cherry-pick of JG's WIP. | **Superseded by upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) (merged 2026-05-14).** JG's commit message: "For RDNA3/4 I was not able to get better performance than the tile kernel for head sizes > 128." Upstream chose the opposite direction from the held branch at D>128 — TILE, not MMA. Held branches `experiment/jg-fa-rdna3{,-tune}` are now archival; delete after this rebase pushes. |
-|   8 | [Dense-aware MMQ + TILE FA D=256 follow-up](strix-halo/pp-rdna3_5-tile-mmq.md)           | **+6.3% pp @ d=16k** vs the 2026-05-14 shipped build; d=0 flat; tg128 within noise (last measured 2026-05-22)           | **Split on the 2026-07-16 upstream rebase.** The TILE FA D=256/ncols=32 override rebased clean and is **kept** on master. The dense/MoE MMQ half was dropped with Finding #5 and re-ported into Finding #9 (it survives as the `J_max` cap). |
-|   9 | [RDNA3.5 MMQ config table (re-port onto PR #24127)](strix-halo/mmq-rdna3_5-config-table.md) | Carries Findings #5 + #8's MMQ semantics onto upstream's new per-arch table (`I=64`, `nthreads=128`, MoE `J`≤48). Bundle delta **+5.8% pp @ d=0, +5.9% pp @ d=16k**; port's own share **unmeasured** | **Kept** on master (commit `05e837f`). Correctness clean on real gfx1151 (`test-backend-ops`: 790/790 MUL_MAT_ID, 1134/1134 MUL_MAT). Port-off A/B skipped, so the gain is not attributed — tg128 rose ~5% and MMQ tuning cannot move decode, so much of it is upstream/ROCm. Kept because the rdna4 table gfx1151 would otherwise inherit is numerically identical to the pre-#24127 defaults the 2026-04 A/Bs beat by +27%/+37%. `occupancy=2` shipped unvalidated. |
+Small on purpose. The whole fork is **three changes to three files**, plus documentation:
 
-Topic docs, code pointers, and dead-end postmortems live under [`strix-halo/`](strix-halo/). A longer survey of optimization sites in the tree (HIP / Vulkan / CPU), numbered §1–10, is in [`strix-halo/NOTES.md`](strix-halo/NOTES.md); the **#n** tags in the next-experiments tables below refer to those sections.
+| What | Where | Why |
+|------|-------|-----|
+| **MMQ tile shape for RDNA3.5** | [mmq-config-rdna3-5.cuh](ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh) | Upstream ships a table for our chip but filled it with values copied from RDNA4 - a much larger, much higher-bandwidth GPU. We halve the tile (`nthreads` 256 -> 128, `I` 128 -> 64) so it fits gfx1151's register budget. |
+| **Smaller tiles for MoE experts** | [mmq.cuh](ggml/src/ggml-cuda/mmq.cuh#L1478) | Wide tiles help dense matmuls but waste work on mixture-of-experts routing, where each expert only covers a slice of the rows. Five lines that cap the tile width for expert dispatch. |
+| **FlashAttention tile config at D=256** | [fattn-tile.cuh](ggml/src/ggml-cuda/fattn-tile.cuh#L315) | One constant (`nbatch_K` 128 -> 64) for the attention kernel our production model uses. Currently the fork's highest-leverage patch: attention is 32% of prefill time at 16k depth. |
 
-## Strix Halo: next experiments
+Everything else here is upstream, plus the `strix-halo/` notebook and a deleted GitHub Actions directory (this fork does not run upstream's CI).
 
-T-shirt sizes: **S** = hours, **M** = a day or two, **L** = a week, **XL** = multi-week. Benefit is measured or plausible pp/tg delta on the Qwen 3.6 workload unless noted. Shipped items are in the [findings table](#strix-halo-findings) above. In the tables below, **#n** in an item name (e.g. **#2** MMVQ) refers to the matching numbered section in [`strix-halo/NOTES.md`](strix-halo/NOTES.md).
+## The story so far
 
-### Highest ROI first
+Roughly chronological, in plain terms. The full register with numbers and links is [strix-halo/findings.md](strix-halo/findings.md).
 
-|   # | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Cost |                 Benefit                 | Why this position                                                                                               |
-| --: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--: | :-------------------------------------: | --------------------------------------------------------------------------------------------------------------- |
-|   1 | **#2 MMVQ RDNA3.5 dedicated table + `nwarps` sweep** — the cheap "join RDNA3_0's table" attempt regressed tg128 −18 % @ d=0, −38 % @ d=16k ([mmvq-rdna3_5.md](strix-halo/mmvq-rdna3_5.md)). Real follow-up is a dedicated RDNA3.5 entry with a tighter quant whitelist (e.g. Q4_0/Q8_0 only) and `nwarps ∈ {2, 4}` swept against the bench matrix. [mmvq.cu:77](ggml/src/ggml-cuda/mmvq.cu#L77), [:93](ggml/src/ggml-cuda/mmvq.cu#L93), [:348](ggml/src/ggml-cuda/mmvq.cu#L348). |  M   |                    M                    | Multi-knob register-pressure search, not a single constant flip. Park unless tg becomes the binding constraint. |
-|   2 | **#3 mmf `src1_ncols` gate asymmetry** — RDNA3.0 caps at `>8`, RDNA3.5 inherits generic `>16`. [mmf.cu:169](ggml/src/ggml-cuda/mmf.cu#L169).                                                                                                                                                                                                                                                                                                                                     |  S   |                   S-M                   | Single-line threshold bench.                                                                                    |
-|   3 | **#8 Zen 5 CPU backend variant** — [CMakeLists.txt:379](ggml/src/CMakeLists.txt#L379) only has `zen4`. Zen 5 has a native 512-bit datapath vs Zen 4's double-pumped 256-bit.                                                                                                                                                                                                                                                                                                     |  S   |                   S-M                   | CPU-side only, off the GPU hot path, so ROI is bounded. Cheap enough to try anyway.                             |
-|   4 | **#9 `madvise(MADV_HUGEPAGE)` after mmap** — [llama-mmap.cpp:437-467](src/llama-mmap.cpp#L437-L467). TLB pressure is real at 60B+ params in 128 GB LPDDR5X.                                                                                                                                                                                                                                                                                                                      |  S   | S (load-time; small ongoing tg at best) | One-line hint, low risk, low reward.                                                                            |
-|   5 | **#10 Commit a Strix Halo bench to `benches/`** — gives us a defensible regression signal and an upstream talking point.                                                                                                                                                                                                                                                                                                                                                         |  S   |                  infra                  | Not a perf win; worth doing once we have one more patch landed to anchor the baseline.                          |
+**We started by looking for configuration mistakes, and found a big one.** Quantizing the KV cache - normally a sensible memory saving - turned out to cost **17x** on prefill at 16k context on this chip. Quantizing the V cache is the expensive half. No code change needed; just do not do it. This remains the single largest effect anyone here has measured.
 
-### Vulkan-only — only if we switch backends
+**Then we went after the matmul kernels, and this became the fork's long-running thread.** llama.cpp picks matmul tile sizes per GPU architecture, and gfx1151 kept inheriting settings meant for far larger AMD GPUs. Correcting that was worth about **+27% prefill**. That patch has now been rewritten three times as upstream restructured the code underneath it - twice because upstream deleted the functions it edited, and most recently because upstream added the exact per-architecture table we had been maintaining privately, then filled it with the wrong numbers. Each rewrite kept the same idea: smaller tiles, because this chip runs out of registers before it runs out of work.
 
-|   # | Item                                                                                                                                                                                                                                            | Cost |       Benefit        | Note                                             |
-| --: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--: | :------------------: | ------------------------------------------------ |
-|  V1 | **#4 `AMD_RDNA3_5` architecture class** — gfx1151 bucketed as `AMD_RDNA3` despite 40 vs 96 CUs, 256 vs 960 GB/s BW. [ggml-vulkan.cpp:270-279](ggml/src/ggml-vulkan/ggml-vulkan.cpp#L270-L279).                                                  |  M   | unknown, plausibly L | Unlocks dedicated warptile + FA occupancy paths. |
-|  V2 | **#5 FA `limit_occupancy_shmem` re-tune** — [ggml-vulkan.cpp:2990-2994](ggml/src/ggml-vulkan/ggml-vulkan.cpp#L2990-L2994). Heuristic was "guessed, tested on RDNA2"; Strix Halo shares LLC with CPU.                                            |  S   |         S-M          | Bundle with V1.                                  |
-|  V3 | **#6/#7 UMA allocation (`prefer_host_memory` + `HostCached`)** — [ggml-vulkan.cpp:2799-2808](ggml/src/ggml-vulkan/ggml-vulkan.cpp#L2799-L2808). `DeviceLocal` is a ~512 MB GART window unless BIOS-reconfigured; large models always fall back. | S-M  | S (mostly load-time) |                                                  |
+**We chased FlashAttention down a dead end for about a month.** The theory was that gfx1151 was being locked out of a faster attention kernel. Three separate attempts - widening a dispatcher check, cherry-picking an upstream developer's work-in-progress branch, and hand-porting a register-layout trick - produced one abandoned patch, one measured 22% regression, and one debugging spiral that ended without a root cause. Upstream then settled the question in the opposite direction from where we were pushing: for our head size, the simpler "tile" kernel is genuinely the faster one. The only thing that survived is a single tuned constant in that tile kernel.
 
-### Dead ends — documented, not pursued
+**One patch quietly turned into a regression and we did not notice for five weeks.** A FlashAttention tuning port measured "flat" when it landed, so we stopped checking. A later change made it actively harmful - 3.5x worse prefill at depth - and it sat there. This is the origin of the [re-bench checklist](strix-halo/upstream.md#re-bench-checklist), and it is the main reason this fork writes down what was *measured* rather than what was *expected*.
 
-- **MMVQ join RDNA3_0 table** ([strix-halo/mmvq-rdna3_5.md](strix-halo/mmvq-rdna3_5.md)): the obvious "route RDNA3.5 to RDNA3_0's `nwarps=8` table" patch regressed tg128 −18 % @ d=0, −38 % @ d=16k on Qwen 3.6 Q4_K_XL — register-pressure spill on RDNA3.5's smaller LLC. Reverted. The real next experiment is a dedicated RDNA3.5 table (backlog #2), not joining RDNA3_0.
-- **FA MMA_F16 on gfx1151** ([strix-halo/fa-dispatcher.md](strix-halo/fa-dispatcher.md)): blocked on an RDNA3 unpacked-WMMA register-layout bug that killed upstream [PR #19063](https://github.com/ggml-org/llama.cpp/pull/19063). The original 1-line dispatcher widening is abandoned. The 2026-04-29 attempt to resolve via Finding #7 (cherry-pick of JG's `cuda-fa-rdna3-4` branch + line-1672 widen) was a held regression at f16/f16 KV in production. **Closed 2026-05-14** — upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) shipped JG's chain and explicitly kept TILE (not MMA) for RDNA3 D>128, so the original line of investigation is settled. The D≤128 path now uses the new mma FA kernel for free.
-- **OPSEL-paired half2 accumulator port for RDNA3 FA-MMA** ([strix-halo/fa-rdna3-opsel-pair.md](strix-halo/fa-rdna3-opsel-pair.md)): proper structural fix for Finding #7's f32 `T_C_VKQ` accumulator ceiling. **Attempted 2026-05-04, abandoned** — prototype landed (`tile_pair_16x8_half2_rdna3` + paired `wmma_f16_..._tied_w32` calls with opposite OPSEL), `test-backend-ops` failed en masse on D=256 numerics, debugging escalated into in-kernel printf instrumentation without bisecting the root cause. Static-VGPR Phase 0 gate was never reached. Postmortem in the doc lists the four candidate failures and the unit-test scaffolding a retry would need before touching `fattn-mma-f16.cuh` again.
-- **#1 UMA / `integrated = false`** ([strix-halo/uma-integrated.md](strix-halo/uma-integrated.md)): [PR #16308](https://github.com/ggml-org/llama.cpp/pull/16308) author reported no perf impact; the flag gates only small scratch buffers, not weight/KV traffic.
-- **ROCm config flags** ([strix-halo/rocm-config.md](strix-halo/rocm-config.md)): `ROCBLAS_USE_HIPBLASLT_BATCHED=0` + LLVM unroll-threshold. Community reports 2× pp on gpt-oss-120b; null on Qwen 3.6. Kept on as AMD-recommended safety nets.
+**Most recently we stopped guessing and profiled the thing.** A kernel-level trace ([kernel-time-breakdown.md](strix-halo/kernel-time-breakdown.md)) finally answered where the time goes, and it re-priced the entire backlog:
 
-### Watching upstream
+- **Prefill at depth is becoming an attention problem, not a matmul problem.** Attention grows from 2% to 32% of prefill time as context deepens, while matmul shrinks from 58% to 38%. They cross around 13k of context. More matmul tuning has a shrinking ceiling.
+- **Decode is essentially one kernel.** A single quantized matrix-vector kernel is 51% of decode time, called 161 times per token.
+- **A promising-looking 16% GPU idle gap during decode is not free money.** It looked like launch overhead that graph capture would fix - but tracing showed graph capture is *already* on and working. That win was already banked.
 
-- **[PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127)** (JohannesGaessler, merged 2026-07-13) — refactored MMQ kernel configuration into per-arch tables (`mmq-config-*.cuh`), renamed `mmq_x`/`mmq_y` to `J`/`I`, and made `__launch_bounds__` mandatory. **Deleted all six functions Finding #5 patched**, so that patch was dropped rather than rebased on 2026-07-16. **Resolved:** re-ported as [Finding #9](#strix-halo-findings), a dedicated `mmq-config-rdna3_5.cuh`. Net effect is favourable — the refactor is the extension point this fork was faking with prepended ternaries, and it makes the tuning plausibly upstreamable. Note `amd_wmma_available()` still covers all of RDNA3, so **without our dispatch branch gfx1151 silently inherits the rdna4 table** (`nthreads=256, I=128`) — watch for that if the branch is ever dropped in a future sync.
-- **[PR #22051](https://github.com/ggml-org/llama.cpp/pull/22051)** (JohannesGaessler, merged 2026-04-17) — refactored AMD mma data loading in `mma.cuh` and the MMQ host/device helpers we touch in Finding #5. **Resolved 2026-04-19:** rebased our patch on top, re-benched with + without. Port still wins by +37% pp @ d=0 / +14% pp @ d=16k on Qwen 3.6; see [mmq-rdna3_5.md § post-upstream sync](strix-halo/mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19). Separately surfaced an upstream tg-at-depth regression unrelated to our patch, tracked in [tg-at-depth-regression.md](strix-halo/tg-at-depth-regression.md).
-- **[PR #22298](https://github.com/ggml-org/llama.cpp/pull/22298)** (CUDA: reduce MMQ stream-k overhead, merged 2026-04-26) — **Resolved the tg-at-depth regression** that was tracked in [tg-at-depth-regression.md](strix-halo/tg-at-depth-regression.md) (tg128@d=16k 31.47 → 44.90 t/s). Touches the same `mma.cuh` hot path #22051 reshaped. No fork-side action.
-- **[PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880)** (JohannesGaessler, merged 2026-05-14) — landed the `cuda-fa-rdna3-*` chain: RDNA3 mma FA for D≤128, faster AMD transpose, AMD kernel tuning. **D>128 still routes to the TILE kernel on RDNA3/4** (per JG: "I was not able to get better performance than the tile kernel for head sizes > 128"). Effect on this fork: retires Finding #6 (rocWMMA tuning moot when D>128 goes to TILE) and supersedes Finding #7 (held branch went the other direction at D=256). `fattn-wmma-f16.cu` still exists in tree; the AMD-WMMA + AMD-MFMA paths now live alongside it in `mma.cuh`. **Re-bench gate: run the full Qwen 3.6 matrix at `{0, 2048, 8192, 16384}` after this rebase to confirm D=256 is no worse than the pre-rebase baseline.** Also benches a D≤128 model to characterise the free win from the new mma FA path.
-- **[PR #16827](https://github.com/ggml-org/llama.cpp/pull/16827)** (lhl, rejected upstream 2025-10-29) — rocWMMA FA tuning for gfx1151. Carried as Finding #6 from 2026-04-19 until 2026-05-14; dropped when #22880 made the WMMA-FA dispatcher path inactive for our production D=256 workload. See [rocwmma-tuned.md](strix-halo/rocwmma-tuned.md) for the postmortem.
+## What is next
 
-### Re-bench checklist after upstream sync or ROCm bump
+Full list with cost and rationale: [strix-halo/backlog.md](strix-halo/backlog.md). The top three:
 
-The 2026-04-27 rocWMMA regression went undetected for ~5 weeks because the doc said "flat" at landing and we didn't re-validate. After every upstream sync OR TheRock nightly bump, run the full Qwen 3.6 bench at `{0, 2048, 8192, 16384}` and compare against the prior baseline. If pp@d=16k is significantly different, **bisect the build flag** (`GGML_HIP_ROCWMMA_FATTN`) before assuming the upstream/ROCm change is the cause — that's the cheapest possible test and historically the highest-yield.
+1. **Tune the FlashAttention tile kernel at depth.** We ship one hand-picked constant and never swept the others. This is where the measured headroom is.
+2. **Run the control we skipped.** Three builds settles whether our MMQ retune is actually earning its keep, and unblocks proposing it upstream.
+3. **A dedicated matrix-vector table for this chip**, starting with the one quantization type that dominates decode. A naive version of this failed before; the corrected approach is narrower.
 
-## How this fork is developed
+## How to work on this fork
 
-Single branch: **`master`** here, tracking upstream plus the `strix-halo/` docs folder and validated patches. Each optimization attempt is ideally **one commit** on `master`:
+One branch, `master`, tracking upstream plus our patches and the `strix-halo/` notebook. Each attempt is ideally **one commit**:
 
-1. Write the hypothesis in a new markdown file under `strix-halo/` (link the lines you plan to change, state what you will measure).
-2. Land the code change as one commit.
-3. Build and benchmark on real gfx1151 hardware (pinned SHA, not a floating branch name, if you use Docker layer caching).
-4. Keep the commit if the bench shows a clear win across the depth/quant matrix you care about; otherwise revert and annotate the doc with why it failed.
+1. **Write the hypothesis first** as a new markdown file in `strix-halo/`. Link the lines you intend to change and state what you will measure before you measure it.
+2. **Land the code change** as a single commit.
+3. **Build and benchmark on real gfx1151 hardware.** Pin a full commit SHA, not a branch name, if Docker layer caching is involved.
+4. **Keep it or revert it**, and either way annotate the doc with what the numbers said.
 
-That keeps history readable: tried / measured / kept or reverted. Docs accumulate even when patches do not.
+The point of step 4 is that this repo's history reads as *tried / measured / kept or reverted*. Docs accumulate even when patches do not - about half the `strix-halo/` folder is postmortems of things that did not work, and that is the half that saves the most time.
+
+Two hard rules from [AGENTS.md](AGENTS.md) that apply to any agent working here: **never** push, open a pull request, or write a comment or reviewer reply on the user's behalf. Commits on this local fork are fine when asked.
 
 ## Keeping up with upstream
 
-Upstream moves quickly. A typical resync:
+Upstream moves fast, and it has retired several of this fork's patches by solving the same problem better. That is the expected outcome, not a failure. [strix-halo/upstream.md](strix-halo/upstream.md) has the running record, the resync procedure, and the re-bench checklist to run afterward.
 
-```bash
-git fetch upstream   # upstream = ggml-org/llama.cpp
-git checkout master
-git rebase upstream/master
-# resolve conflicts; drop superseded patch commits if upstream replaced them
-git push origin master   # origin = this fork
-```
+## Building for gfx1151
 
-## ROCm / gfx1151 build
+Official ROCm packages have shipped broken `gfx1151` kernel artifacts in some releases - see [ROCm/ROCm#6042](https://github.com/ROCm/ROCm/issues/6042). This fork currently builds against the **ROCm 7.14.0 release**, having moved off TheRock nightlies in July 2026.
 
-Official ROCm packages have shipped broken `gfx1151` kernel artifacts for some releases; see [ROCm/ROCm#6042](https://github.com/ROCm/ROCm/issues/6042). A working multi-stage Docker build for this fork uses **TheRock** ROCm nightlies and is maintained alongside deployment playbooks in a companion repo—see [Profiling & lab workflow](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md) in [`server-configs`](https://github.com/justinappler/server-configs) (`services/llamacpp/`).
+The multi-stage Docker build, the deployment playbooks, and the profiling harness live in a companion repo: [`server-configs`](https://github.com/justinappler/server-configs), under `services/llamacpp/`. See its [profiling and lab workflow](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md) notes.
+
+## Map of `strix-halo/`
+
+| File | What it is |
+|------|------------|
+| [findings.md](strix-halo/findings.md) | Every attempt, what it was worth, and its current status |
+| [backlog.md](strix-halo/backlog.md) | What to try next, priced against the kernel profile |
+| [upstream.md](strix-halo/upstream.md) | Upstream changes that affected us, resync procedure, re-bench checklist |
+| [NOTES.md](strix-halo/NOTES.md) | Survey of tunable sites across the HIP / Vulkan / CPU backends |
+| [README.md](strix-halo/README.md) | Index of every topic doc and postmortem |
+
+Individual experiments each have their own file; start from the index.
