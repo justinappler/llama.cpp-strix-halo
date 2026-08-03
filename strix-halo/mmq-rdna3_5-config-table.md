@@ -1,10 +1,10 @@
 # MMQ RDNA3.5 config table — re-port of Finding #5/#8 onto upstream PR #24127
 
-## Status (2026-07-16 — ported, **not yet benched**)
+## Status (2026-07-16 — shipped and benched)
 
 Third incarnation of the gfx1151 MMQ tuning. The previous two forms (the six-edit ternary patch from [mmq-rdna3_5.md](mmq-rdna3_5.md), and the dense/MoE split from [pp-rdna3_5-tile-mmq.md](pp-rdna3_5-tile-mmq.md)) were **dropped, not rebased**, on the 2026-07-16 upstream sync. Upstream [PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127) (JohannesGaessler, merged 2026-07-13, `6eddde06`) deleted every function they edited. This doc covers the re-port against the replacement architecture.
 
-**No numbers here yet.** All prior deltas (+27% pp@d=0, +6.3% pp@d=16k) were measured against a code path that no longer exists. Treat them as direction-of-win only until the matrix below is run.
+**Shipped and running in production.** Correctness verified on real gfx1151 and the full bench matrix is in [Outcome](#outcome) below: every depth improved, nothing regressed, and ~971 t/s prefill at d=16k is the best number this fork has produced. The port-off A/B was **not** run, so the port's own share of that gain is unmeasured — see the caveat in [Outcome](#outcome) before quoting these numbers as validation of the port.
 
 Pre-rebase history is preserved on `backup/master-pre-rebase-20260716` (dropped commits `0adc0a1b5`, and the `mmq.cuh` half of `9a318552e`).
 
@@ -85,30 +85,47 @@ The table ships `occupancy = 2`, copied from rdna4. Note what that means relativ
 
 | | nthreads | occupancy | threads resident/CU | register budget/thread |
 |---|---:|---:|---:|---|
-| rdna4 (what gfx1151 gets today) | 256 | 2 | 512 | baseline |
+| rdna4 (what gfx1151 inherits without this port) | 256 | 2 | 512 | baseline |
 | **rdna3_5 (this port)** | 128 | 2 | 256 | **2x baseline** |
 | rdna3_5, `occupancy=4` | 128 | 4 | 512 | baseline |
 
 `occupancy=2` is the thesis-consistent choice: this whole finding exists because RDNA3.5 hits VGPR pressure at rdna4's tile sizes, and halving the block while holding the occupancy target gives each thread twice the register headroom. It is also the conservative choice against spills — the failure mode that killed the MMVQ "join RDNA3_0" experiment ([mmvq-rdna3_5.md](mmvq-rdna3_5.md)).
 
-The risk is the other direction: 256 threads/CU may under-occupy a 40-CU part and lose latency hiding on ~256 GB/s LPDDR5x. **`occupancy ∈ {2, 4}` is the first sweep** if the headline bench comes in flat or down. Do not sweep it before establishing the baseline below — one variable at a time.
+The risk is the other direction: 256 threads/CU may under-occupy a 40-CU part and lose latency hiding on ~256 GB/s LPDDR5x. **`occupancy ∈ {2, 4}` is the first sweep** whenever this table is next revisited — it shipped unvalidated at 2 and the bench in [Outcome](#outcome) does not probe it. Sweep it against a port-off baseline, one variable at a time.
 
-## Bench plan
+## Outcome
 
-This rebase moves three things at once (234 upstream commits including PR #24127, the ROCm 7.14.0 switch per [rocm-config.md](rocm-config.md), and this re-port), so the port cannot be attributed without an explicit A/B.
+**Kept.** Build `05e837f`, ROCm 7.14.0, gfx1151, [qwen3.6-baseline.md](qwen3.6-baseline.md) Run 3 config (Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`), compared against the last shipped build `3511e7d` (TheRock `7.13.0a20260514`):
 
-**Run 1 — new baseline (port OFF).** Build at the rebase commit with the `mmq-config-rdna3_5.cuh` dispatch reverted (gfx1151 falls through to rdna4). This is the honest "what does upstream give us today" number and it is what every future delta gets measured against. Required because both the ROCm bump and 234 commits landed in the same window.
+| test | 3511e7d (shipped) | 05e837f (this) | delta |
+|---|---:|---:|---:|
+| pp512 @ d=0       | 1350.31 ± 7.27  | 1428.13 ± 19.35 | **+5.8%** |
+| pp512 @ d=2,048   | 1261.93 ± 4.56  | 1299.39 ± 8.82  | +3.0% |
+| pp512 @ d=8,192   | 1085.56 ± 16.49 | 1135.42 ± 21.21 | +4.6% |
+| pp512 @ d=16,384  |  916.76 ± 4.62  |  971.25 ± 9.54  | **+5.9%** |
+| tg128 @ d=0       |   47.25 ± 0.06  |   49.81 ± 0.11  | +5.4% |
+| tg128 @ d=2,048   |   46.96 ± 0.15  |   48.98 ± 0.94  | +4.3% |
+| tg128 @ d=8,192   |   45.79 ± 0.15  |   48.13 ± 0.14  | +5.1% |
+| tg128 @ d=16,384  |   44.25 ± 0.15  |   46.43 ± 0.14  | +4.9% |
 
-**Run 2 — port ON.** Same build, dispatch restored.
+Nothing regressed at any depth. ~971 t/s prefill at d=16k is the best result this fork has produced.
 
-Both at the [qwen3.6-baseline.md](qwen3.6-baseline.md) Run 3 config: Qwen 3.6 35B-A3B Q4_K_XL, f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`.
+Correctness was verified on real hardware before the bench, since the `I=64` / `nthreads=128` tile shape changes the MMA write-back geometry: `test-backend-ops test -b ROCm0` passed **790/790 on `MUL_MAT_ID`** (the MoE path the `J_max` cap touches) and **1134/1134 on `MUL_MAT`**.
 
-**Decision rule** (unchanged from the original finding): keep if pp512 @ d=0 improves >5% outside noise **and** no depth regresses. Revert if d=16k regresses even when d=0 wins — agentic coding lives at depth. Noise floor on this host is ±1.5%.
+### Caveat: this is a bundle delta, not a port A/B
 
-Also worth capturing from Run 1 vs the last shipped build (`3511e7d`, `1350/917 t/s` at d=0/16k): whether the ROCm 7.14.0 + 234-commit bundle moved production numbers on its own. That is the [re-bench checklist](../README.md#re-bench-checklist-after-upstream-sync-or-rocm-bump) obligation and this is the cheapest time to satisfy it.
+**The port-off run was not done, so the port's own contribution is unmeasured.** The table above compares two builds that differ by three things at once: 234 upstream commits, ROCm 7.13 -> 7.14.0, and this re-port.
+
+The tg128 column is the tell. It rose ~5% at every depth, and **this port cannot move tg** — MMQ tile tuning is a prompt-side fix, decode goes through MMVQ. The 2026-04-19 A/B in [mmq-rdna3_5.md](mmq-rdna3_5.md#post-upstream-sync-re-bench-2026-04-19) measured tg flat while pp moved +37%, confirming that. So roughly +5% of this is the bundle, and the pp gains (+3.0% to +5.9%) are the same magnitude. The port's share could be most of it or close to none; these numbers cannot tell.
+
+Do **not** read the +5.8% at d=0 as the decision rule passing. That rule ("keep if pp512@d=0 improves >5% and no depth regresses") is written to compare port vs no-port. Applying it to a bundle delta is the same class of error that let the rocWMMA regression hide for five weeks: a number that looked fine against the wrong reference.
+
+**Why it was kept anyway** (2026-07-16 call): the rdna4 table gfx1151 would otherwise inherit is `nthreads=256, occupancy=2, I=128` uniformly for every type — **numerically identical** to the generic WMMA constants gfx1151 got from upstream before #24127 (`get_mmq_x_max_host` -> 128 via `amd_wmma_available`, `get_mmq_y_host` -> 128, `mmq_get_nwarps_host` -> `256/32` = 8 warps). Those are exactly the values the 2026-04 A/Bs beat by +27% and +37%. The port is therefore very likely still winning; it just wasn't re-proven here.
+
+The residual doubt worth holding: those A/Bs are 234 commits old, the MMQ kernel has been reworked since (stream-k in #22298, the data-layout and config refactors), and `occupancy=2` did not exist when they were run. Upstream's own work may have narrowed the gap. If this ever needs settling, the A/B is one throwaway branch: `git checkout upstream/master -- ggml/src/ggml-cuda/mmq.cuh`, build with `--build-arg LLAMACPP_VERSION=<sha>`, run the matrix above.
 
 ## Upstreamability
 
-Worth a look once benched. PR #24127's stated purpose is exactly this — per-arch tuning tables without cross-arch side effects — and gfx1151 inheriting a table tuned for a 96-CU / 960 GB/s discrete part is the kind of gap the refactor was built to close. A clean `mmq-config-rdna3_5.cuh` with bench numbers is a far more plausible contribution than the old six-edit ternary patch ever was.
+Worth a look, but not on these numbers. PR #24127's stated purpose is exactly this — per-arch tuning tables without cross-arch side effects — and gfx1151 silently inheriting the generic 96-CU-era constants is the gap the refactor was built to close. A clean `mmq-config-rdna3_5.cuh` is a far more plausible contribution than the old six-edit ternary patch ever was.
 
-Blockers before proposing anything: real numbers on both runs above, an `occupancy` sweep so the value isn't a guess, and confirmation that the MoE J cap doesn't want to be a table property rather than a special case in `mul_mat_q_switch_J`. Per [AGENTS.md](../AGENTS.md), any upstream PR needs a human author who can defend it without assistance.
+Blockers: a real port-off A/B (the bundle delta above will not persuade a maintainer, and shouldn't), an `occupancy` sweep so the value isn't a guess, and a decision on whether the MoE `J` cap belongs in the table rather than as a special case in `mul_mat_q_switch_J`. Per [AGENTS.md](../AGENTS.md), any upstream PR needs a human author who can defend it without assistance.
