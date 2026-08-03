@@ -11,7 +11,7 @@ Run this after **every** upstream sync or ROCm bump. No exceptions - the one tim
 1. Run the full Qwen 3.6 matrix at depths `{0, 2048, 8192, 16384}` and compare against the previous baseline in [qwen3.6-baseline.md](qwen3.6-baseline.md). Noise floor on this host is about +/-1.5%.
 2. If anything moved more than that, **do not assume it was the upstream bundle.** Bisect the cheapest suspects first, in this order:
    - **Our own patches.** There are only three, and two are one file each. `git checkout upstream/master -- ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh` and `-- ggml/src/ggml-cuda/fattn-tile.cuh` are both single-command reverts that produce a clean A/B.
-   - **HIP compiler flags.** Upstream changes these without announcing them; [PR #25495](https://github.com/ggml-org/llama.cpp/pull/25495) removed `-ffast-math` from the whole HIP build in July 2026.
+   - **HIP compiler flags.** Two changed under us in this window and neither has been measured: upstream [PR #25495](https://github.com/ggml-org/llama.cpp/pull/25495) removed `-ffast-math` from the whole HIP build, and we dropped `--amdgpu-unroll-threshold-local=600` from the deploy build on 2026-08-02 ([rocm-config.md](rocm-config.md)). Both are one-line restores.
    - **The ROCm version**, last.
 3. Record the result in the relevant topic doc even if nothing moved. "Re-benched, flat" is a useful entry; silence is not.
 
