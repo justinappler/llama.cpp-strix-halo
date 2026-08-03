@@ -1,5 +1,16 @@
 # rocWMMA FA tuning for gfx1151 — port of lhl's PR #16827
 
+## Status (2026-08-02 — closed for good, upstream deleted the kernel)
+
+**Upstream [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046) (JohannesGaessler, merged 2026-07-24) removed rocWMMA FlashAttention entirely.** `fattn-wmma-f16.{cu,cuh}`, the `GGML_HIP_ROCWMMA_FATTN` build option, and the rocWMMA lines in `docs/build.md` are all gone. There is no flag left to flip and no code path left to tune.
+
+Two consequences beyond this doc:
+
+- The fork's re-bench checklist used to say "if pp@d=16k moves, bisect `GGML_HIP_ROCWMMA_FATTN` first — cheapest test, historically highest-yield." **That advice is dead.** It has been replaced in the [re-bench checklist](../README.md) with the current cheapest first suspects.
+- [rocm-config.md](rocm-config.md) justifies `ROCBLAS_USE_HIPBLASLT_BATCHED=0` partly as "AMD-recommended when building with `GGML_HIP_ROCWMMA_FATTN=OFF`". That condition is now vacuously true; the flag stays on its own merits (bench-null, AMD-recommended safety net), not on that reasoning.
+
+Everything below is preserved as the postmortem.
+
 ## Status (2026-05-14 — retired)
 
 **Code dropped from `master` during the 2026-05-14 upstream rebase.** Upstream [PR #22880](https://github.com/ggml-org/llama.cpp/pull/22880) merged JG's `cuda-fa-rdna3-*` chain and explicitly routes RDNA3 D>128 to the TILE kernel rather than WMMA. Combined with the production flag already being OFF since 2026-04-27, the rocWMMA-tuning patches no longer affect Qwen 3.6 D=256 throughput, so the source has no purpose on `master`. The historical sections below are preserved as the postmortem.

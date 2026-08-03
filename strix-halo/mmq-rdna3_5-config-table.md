@@ -43,9 +43,12 @@ rdna4 satisfies this as `128 == 8 * 16`; our table as `64 == 4 * 16`. The old pa
 
 ## The port
 
+> [!NOTE]
+> **Reshaped on the 2026-08-02 rebase.** Upstream [PR #26199](https://github.com/ggml-org/llama.cpp/pull/26199) (merged 2026-07-28) added `mmq-config-rdna3-5.cuh` and the `GGML_CUDA_CC_IS_RDNA3_5` dispatch itself, so pieces 1 and 2 below are now **upstream's code, not ours**. See [Collision with PR #26199](#collision-with-pr-26199) for what the fork still owns.
+
 Three pieces, +11/-1 in `mmq.cuh` plus one new file:
 
-1. **[ggml/src/ggml-cuda/mmq-config-rdna3_5.cuh](../ggml/src/ggml-cuda/mmq-config-rdna3_5.cuh)** (new, 303 lines) — generated mechanically from `mmq-config-rdna4.cuh` with `nthreads: 256 -> 128`, `I: 128 -> 64`. `sram_layout`, `K_vram`, and `stream_k` are carried over unchanged for all 21 types; only the tile shape is retuned.
+1. **`mmq-config-rdna3_5.cuh`** (new, 303 lines) — generated mechanically from `mmq-config-rdna4.cuh` with `nthreads: 256 -> 128`, `I: 128 -> 64`. `sram_layout`, `K_vram`, and `stream_k` are carried over unchanged for all 21 types; only the tile shape is retuned.
 2. **Dispatch** in [mmq.cuh](../ggml/src/ggml-cuda/mmq.cuh) — host-side `GGML_CUDA_CC_IS_RDNA3_5(cc)` branch and device-side `#elif defined(RDNA3_5)`, both placed **before** the `amd_wmma_available` / `AMD_WMMA_AVAILABLE` branch that would otherwise route us to rdna4.
 3. **MoE J cap** in `mul_mat_q_switch_J` — `args.expert_bounds != nullptr` still reaches the J-selection loop, so the old dense/MoE split survives as a one-line bound on the search:
 
@@ -58,6 +61,29 @@ const int J_max = GGML_CUDA_CC_IS_RDNA3_5(cc) && args.expert_bounds != nullptr ?
 rdna4's `fallback=true` rows only cover `J ∈ {16, 32, 64, 128}` (PR #24127 deliberately thinned the fallback specializations to powers of 2 to cut compile time). With a MoE cap of 48 and no `J=48` fallback entry, the selection loop would silently settle on **32** whenever `ne01 % 128 != 0` — a behaviour change from the pre-rebase build that would confound the re-bench.
 
 Our table therefore adds a `J=48, fallback=true` row per type (21 rows). Verified: MoE resolves to `J=48` for both `fallback` values, dense stays at `J=128`.
+
+## Collision with PR #26199
+
+**2026-08-02.** Upstream [PR #26199](https://github.com/ggml-org/llama.cpp/pull/26199) (Geramy Loveless, merged 2026-07-28, `60bccc376`) added `mmq-config-rdna3-5.cuh` and `mmq-config-rdna3.cuh`, and replaced the `amd_wmma_available` dispatch with explicit `RDNA4 / RDNA3_5 / RDNA3` branches on both the host and device sides. That is structurally pieces 1 and 2 of this port, landed independently and with the same function name, `ggml_cuda_mmq_get_config_rdna3_5`.
+
+**The structure landed upstream; the tuning did not.** Upstream's rdna3_5 table is a verbatim copy of rdna4:
+
+| J | upstream rdna3_5 (`nthreads`, `occupancy`, `I`) | this fork |
+|---|---|---|
+| `<= 32` | 128, 2, 64 | same |
+| `>= 48` | **256, 2, 128** | **128, 2, 64** |
+
+So gfx1151 on stock upstream now gets its own table but still runs rdna4's wide tiles at every `J >= 48` - the same tile shape the 2026-04 A/Bs beat by +27%/+37%. The warning that used to live in the root README ("without our dispatch branch gfx1151 silently inherits the rdna4 table") still holds in substance; only the mechanism changed.
+
+**Resolution.** Our `mmq-config-rdna3_5.cuh` was deleted and its values written into upstream's `mmq-config-rdna3-5.cuh`. The fork's remaining patch to that file:
+
+- 164 shared entries retuned `256, 2, 128` -> `128, 2, 64` (`J >= 48`, all types)
+- 26 rows added: the 22 `J=48, fallback=true` rows the MoE cap needs (one per type), plus 4 `Q2_K` rows at `J >= 96` that only fit in LDS at `I=64`
+- nothing dropped, and no entry diverges from upstream on `sram_layout`, `K_vram`, or `stream_k`
+
+`Q2_0` support came free with the merge - it is a new type from upstream [PR #25707](https://github.com/ggml-org/llama.cpp/pull/25707) that our old standalone table did not cover.
+
+The `mmq.cuh` diff shrank from +11/-1 to **+5/-1**: the dispatch is upstream's now, and the MoE `J` cap is all that is left.
 
 ## Verification so far
 
@@ -126,6 +152,14 @@ The residual doubt worth holding: those A/Bs are 234 commits old, the MMQ kernel
 
 ## Upstreamability
 
-Worth a look, but not on these numbers. PR #24127's stated purpose is exactly this — per-arch tuning tables without cross-arch side effects — and gfx1151 silently inheriting the generic 96-CU-era constants is the gap the refactor was built to close. A clean `mmq-config-rdna3_5.cuh` is a far more plausible contribution than the old six-edit ternary patch ever was.
+Worth a look, but not on these numbers. PR #24127's stated purpose is exactly this — per-arch tuning tables without cross-arch side effects — and gfx1151 silently inheriting the generic 96-CU-era constants is the gap the refactor was built to close.
 
-Blockers: a real port-off A/B (the bundle delta above will not persuade a maintainer, and shouldn't), an `occupancy` sweep so the value isn't a guess, and a decision on whether the MoE `J` cap belongs in the table rather than as a special case in `mul_mat_q_switch_J`. Per [AGENTS.md](../AGENTS.md), any upstream PR needs a human author who can defend it without assistance.
+**PR #26199 made this materially easier.** The file exists upstream, was added explicitly "so they can be tuned independently", and shipped untuned — a copy of rdna4. The contribution is no longer "add a new per-arch table"; it is "fill in the one that is already there, with numbers". That is a much smaller ask of a reviewer.
+
+Blockers, in order:
+
+1. **A real port-off A/B.** The bundle delta in [Outcome](#outcome) will not persuade a maintainer, and shouldn't. Since #26199 this is easier too — the baseline is now literally `git checkout upstream/master -- ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh`, no dispatch surgery.
+2. **An `occupancy` sweep** so the value isn't a guess.
+3. **A decision on the MoE `J` cap** — whether it belongs in the table rather than as a special case in `mul_mat_q_switch_J`. A reviewer will ask, and "it's a per-arch table, put it in the table" is the likely answer.
+
+Upstream's AI policy changed on 2026-07-23 ([PR #26012](https://github.com/ggml-org/llama.cpp/pull/26012)): AI-generated code is now allowed, provided a human understands it and will maintain it. The old "majority human-authored" rule is gone. What has **not** changed is that an agent must never write the PR description or reply to reviewers — see [AGENTS.md](../AGENTS.md).
