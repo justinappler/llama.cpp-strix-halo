@@ -1,6 +1,20 @@
 # ROCm config flags — LLVM unroll + HIPBLASLT_BATCHED — null on Qwen 3.6
 
-**Status: bench null, kept on anyway.** Two community-recommended ROCm config flags for Strix Halo; no measurable change on our Qwen 3.6 Q4_K_XL config. They stay enabled in the deploy config as AMD-recommended safety nets for other models / future ROCm versions, not as Strix Halo pp wins for this workload.
+## Status (2026-08-02): unroll flag retired, the underlying bug is fixed
+
+**The `-mllvm --amdgpu-unroll-threshold-local=600` workaround was dropped from the build.** The LLVM regression it worked around is fixed in our toolchain.
+
+The revert landed in rocm-llvm ([#1348](https://github.com/ROCm/llvm-project/pull/1348), [#1349](https://github.com/ROCm/llvm-project/pull/1349)) and reached TheRock nightlies around 2026-02-13. On the [ROCm/rocm-systems#2865](https://github.com/ROCm/rocm-systems/issues/2865) thread, AMD's `@fjankovi` confirmed on 2026-03-02 that "current ROCm 7.12 nightly builds already have this fix", and a third party verified it on a **gfx1151** 7.12 tarball: "the performance test is normal, and the BUG has indeed been fixed." This fork moved to ROCm 7.14.0 on 2026-07-16, so the fix has been in the toolchain since then and the flag was forcing a non-default unroll threshold on a compiler that no longer needs it.
+
+The issue is still open upstream, but that is triage hygiene, not an open bug. **The old note in the deploy Dockerfile ("still open... so it stays on through 7.14") was written in the TheRock 7.11 era and went stale at the 7.14.0 switch.**
+
+`ROCBLAS_USE_HIPBLASLT_BATCHED=0` is unaffected - it is a runtime env var, not a build flag, and it stays.
+
+**Bisect note:** if prefill regresses on the next bench, this removal is a suspect alongside upstream's `-ffast-math` removal. Restoring it is one line in the deploy Dockerfile.
+
+---
+
+**Original status: bench null, kept on anyway.** Two community-recommended ROCm config flags for Strix Halo; no measurable change on our Qwen 3.6 Q4_K_XL config. They stayed enabled in the deploy config as AMD-recommended safety nets for other models / future ROCm versions, not as Strix Halo pp wins for this workload.
 
 ## Background
 
@@ -52,3 +66,5 @@ Both flags live in the deploy config, not this repo. Not part of the llama.cpp b
 Don't count this as a Strix Halo pp win. But also don't remove the flags — they're correct by AMD's own guidance for our build, and the null delta here doesn't disprove their value on other models.
 
 If a future model load shows unexpectedly slow pp vs community reports, flipping either off for A/B is the first thing to try.
+
+> Superseded for the unroll flag by the [2026-08-02 status](#status-2026-08-02-unroll-flag-retired-the-underlying-bug-is-fixed) above: "don't remove it" was correct while the compiler bug was live. It isn't any more. `ROCBLAS_USE_HIPBLASLT_BATCHED=0` still stands as written.
