@@ -42,6 +42,11 @@ Both are zero-risk for our config:
 
 Both flags live in server-configs, not this repo. Not part of the llama.cpp build tree.
 
+> [!NOTE]
+> **2026-08-02:** upstream [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046) deleted rocWMMA FlashAttention, so `GGML_HIP_ROCWMMA_FATTN` no longer exists. The condition attached to `ROCBLAS_USE_HIPBLASLT_BATCHED=0` above is now vacuously satisfied. Keep the flag on its own merits (bench-null here, AMD-recommended, cheap insurance) rather than on that reasoning.
+>
+> Separately, upstream [PR #25495](https://github.com/ggml-org/llama.cpp/pull/25495) (merged 2026-07-27) **removed `-ffast-math -fno-finite-math-only` from the HIP build**. That is a global codegen change on our exact backend that we did not make and did not measure. It is the most likely confounder in the next re-bench, and it sits next to the still-pending unroll-threshold bisect below.
+
 ## Recommendation
 
 Don't count this as a Strix Halo pp win. But also don't remove the flags — they're correct by AMD's own guidance for our build, and the null delta here doesn't disprove their value on other models.

@@ -1,7 +1,10 @@
 // Standalone check for the RDNA3.5 MMQ config table (strix-halo Finding #9, see
-// mmq-rdna3_5-config-table.md). Validates that mmq-config-rdna3_5.cuh is well-formed
+// mmq-rdna3_5-config-table.md). Validates that mmq-config-rdna3-5.cuh is well-formed
 // and dispatches as intended WITHOUT needing ROCm or gfx1151 hardware, so the table
 // can be edited and swept from any dev host.
+//
+// Since upstream PR #26199 the file is upstream's; this fork only retunes the tile
+// shape inside it. Check 1 below is what pins that down.
 //
 //   cd ggml/src/ggml-cuda
 //   clang++ -std=c++17 -I. -Wall -o /tmp/mmq-table-check ../../../strix-halo/mmq-table-check.cpp
@@ -22,7 +25,7 @@
 #define MMQ_ITER_K 256
 
 enum ggml_type {
-    GGML_TYPE_Q1_0, GGML_TYPE_Q4_0, GGML_TYPE_Q4_1, GGML_TYPE_Q5_0, GGML_TYPE_Q5_1,
+    GGML_TYPE_Q1_0, GGML_TYPE_Q2_0, GGML_TYPE_Q4_0, GGML_TYPE_Q4_1, GGML_TYPE_Q5_0, GGML_TYPE_Q5_1,
     GGML_TYPE_Q8_0, GGML_TYPE_Q2_K, GGML_TYPE_Q3_K, GGML_TYPE_Q4_K, GGML_TYPE_Q5_K,
     GGML_TYPE_Q6_K, GGML_TYPE_IQ1_S, GGML_TYPE_IQ2_XXS, GGML_TYPE_IQ2_XS, GGML_TYPE_IQ2_S,
     GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ3_S, GGML_TYPE_IQ4_NL, GGML_TYPE_IQ4_XS,
@@ -57,7 +60,7 @@ struct ggml_cuda_mmq_config {
         return ggml_cuda_mmq_config((type_), (nthreads_), (occupancy_), (I_), (J_), (sram_layout_), (K_vram_), (stream_k_), (fallback_)); \
     }                                                                                                                                     \
 
-#include "mmq-config-rdna3_5.cuh"
+#include "mmq-config-rdna3-5.cuh"
 #include "mmq-config-rdna4.cuh"
 #undef CASE
 
@@ -78,7 +81,7 @@ static int pick_J(ggml_type type, bool fallback, bool is_moe, bool rdna3_5, int 
 int main() {
     int fails = 0;
     const ggml_type types[] = {
-        GGML_TYPE_Q1_0, GGML_TYPE_Q4_0, GGML_TYPE_Q4_1, GGML_TYPE_Q5_0, GGML_TYPE_Q5_1,
+        GGML_TYPE_Q1_0, GGML_TYPE_Q2_0, GGML_TYPE_Q4_0, GGML_TYPE_Q4_1, GGML_TYPE_Q5_0, GGML_TYPE_Q5_1,
         GGML_TYPE_Q8_0, GGML_TYPE_Q2_K, GGML_TYPE_Q3_K, GGML_TYPE_Q4_K, GGML_TYPE_Q5_K,
         GGML_TYPE_Q6_K, GGML_TYPE_IQ1_S, GGML_TYPE_IQ2_XXS, GGML_TYPE_IQ2_XS, GGML_TYPE_IQ2_S,
         GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ3_S, GGML_TYPE_IQ4_NL, GGML_TYPE_IQ4_XS,
