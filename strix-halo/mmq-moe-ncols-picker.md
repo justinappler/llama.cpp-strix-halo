@@ -129,8 +129,7 @@ regression is plausible.
 
 **Reverted.** Arm B = `b47bb31e1`, ROCm 7.14.0, gfx1151, canonical bench (`build: b47bb31 (1)` in the
 llama-bench footer confirms the image was not a stale cache). Arm A = `05e837f`, the numbers already
-in [qwen3.6-baseline.md](qwen3.6-baseline.md). Host otherwise idle — checked for tdarr/Plex
-transcodes, none running.
+in [qwen3.6-baseline.md](qwen3.6-baseline.md). Host otherwise idle — checked for background transcodes, none running.
 
 | test | arm A (`05e837f`, J=48) | arm B (`b47bb31e1`, picker → J=64) | delta |
 |---|---:|---:|---:|

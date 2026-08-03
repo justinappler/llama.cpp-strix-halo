@@ -36,4 +36,4 @@ The rest of this directory is one file per experiment - hypotheses, source point
 | [`codex-insights.md`](codex-insights.md) | Consolidated assistant read of the above |
 | [`mmq-table-check.cpp`](mmq-table-check.cpp) | Host-side check that the RDNA3.5 MMQ table is well-formed and dispatches right — no ROCm needed |
 
-Deploy, Docker, and profiling automation live in [**server-configs** `services/llamacpp/profiling/`](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md).
+Deploy, Docker, and profiling automation are maintained in a separate private repo. Every doc here writes out its full bench command so results can be reproduced without it.

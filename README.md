@@ -80,7 +80,7 @@ Upstream moves fast, and it has retired several of this fork's patches by solvin
 
 Official ROCm packages have shipped broken `gfx1151` kernel artifacts in some releases - see [ROCm/ROCm#6042](https://github.com/ROCm/ROCm/issues/6042). This fork currently builds against the **ROCm 7.14.0 release**, having moved off TheRock nightlies in July 2026.
 
-The multi-stage Docker build, the deployment playbooks, and the profiling harness live in a companion repo: [`server-configs`](https://github.com/justinappler/server-configs), under `services/llamacpp/`. See its [profiling and lab workflow](https://github.com/justinappler/server-configs/blob/main/services/llamacpp/profiling/README.md) notes.
+The multi-stage Docker build, the deployment playbooks, and the profiling harness are maintained separately from this repo, in a private deploy repo. Benchmarks quoted here were run through that harness; the bench flags themselves are always written out in full in the topic docs so the numbers can be reproduced without it.
 
 ## Map of `strix-halo/`
 

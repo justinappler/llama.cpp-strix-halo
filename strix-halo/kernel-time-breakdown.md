@@ -21,7 +21,7 @@ Three conclusions that reprice the backlog, argued in [Implications](#implicatio
 
 ## Method
 
-Two traces via `profile.sh` (server-configs), canonical bench flags with `-r 1`:
+Two traces via the deploy repo's `profile.sh` wrapper, canonical bench flags with `-r 1`:
 
 ```bash
 PROFILER_CMD=rocprofv3 PROFILER_FLAGS="--kernel-trace -d ." ./profile.sh /app/llama-bench \
