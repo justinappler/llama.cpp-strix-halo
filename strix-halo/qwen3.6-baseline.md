@@ -129,6 +129,25 @@ The combination - stable aggregate mean, high rep-to-rep spread, worst where MMQ
 consistent with a codegen change altering scheduling or occupancy rather than with a tile-config
 change, which would move the mean without touching variance.
 
+### Arm A (upstream clean, `c841aee`) settles two of the three questions
+
+Benched same day, same host, same command, image tagged separately so production was untouched.
+
+| depth | arm A pp512 | arm C pp512 | **C - A** | arm A tg128 | tg delta |
+| ------: | ----------------: | ------: | ------: | -----------: | ------: |
+|       0 | 1077.79 ± 60.59 | 1377.80 | **+27.8%** | 51.06 ± 0.22 | +0.2% |
+|   2,048 |  974.19 ± 27.28 | 1259.02 | **+29.2%** | 50.84 ± 0.19 | -0.1% |
+|   8,192 |  864.05 ± 36.55 | 1109.48 | **+28.4%** | 49.44 ± 0.18 | -0.1% |
+|  16,384 |  746.32 ± 18.31 |  952.12 | **+27.6%** | 47.59 ± 0.21 |  0.0% |
+
+**The fork's patches are worth +27.6% to +29.2% prefill with decode flat to within 0.2%** - the
+port-off control that had never been run. See
+[fa-mma-d256-26419.md](fa-mma-d256-26419.md#this-closes-the-port-off-attribution-backlog-item-2).
+
+**And arm A reproduces the variance blow-up with zero fork code in it** (rel. sd 2.45-5.62% against
+`b73cfa4`'s 0.24-1.78%). That eliminates our patches as the cause and points the remaining regression
+at the upstream window.
+
 ### Prime suspect: the second math-flag removal
 
 Per the [re-bench checklist](upstream.md#re-bench-checklist), cheapest suspects first. Our three
