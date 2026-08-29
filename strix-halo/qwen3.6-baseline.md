@@ -140,9 +140,23 @@ Benched same day, same host, same command, image tagged separately so production
 |   8,192 |  864.05 ± 36.55 | 1109.48 | **+28.4%** | 49.44 ± 0.18 | -0.1% |
 |  16,384 |  746.32 ± 18.31 |  952.12 | **+27.6%** | 47.59 ± 0.21 |  0.0% |
 
-**The fork's patches are worth +27.6% to +29.2% prefill with decode flat to within 0.2%** - the
-port-off control that had never been run. See
+**The fork's three patches together are worth +26.6% to +28.8% prefill with decode flat to within
+0.2%** - the port-off control that had never been run. See
 [fa-mma-d256-26419.md](fa-mma-d256-26419.md#this-closes-the-port-off-attribution-backlog-item-2).
+
+**A third build isolated the MMQ table alone (`experiment/mmq-rdna3-5-table-only`, 3 interleaved
+cycles vs clean upstream) and it is worth only +2.1% to +4.2%** - 8-15% of the fork's prefill gain,
+not the bulk of it:
+
+| depth | A upstream | E table only | delta | share of the full fork gain |
+| ------: | ------: | ------: | ------: | ------: |
+|       0 | 1077.14 | 1109.06 | +2.96% | 10.6% |
+|   2,048 |  977.46 | 1018.53 | +4.20% | 14.6% |
+|   8,192 |  870.31 |  901.85 | +3.62% | 13.2% |
+|  16,384 |  752.09 |  768.05 | +2.12% |  8.0% |
+
+`J_max=48` measured flat in Finding #10, so the FA TILE case is the prime suspect for the remainder
+and has not been isolated. That build is the obvious next one.
 
 **And arm A reproduces the variance blow-up with zero fork code in it** (rel. sd 2.45-5.62% against
 `b73cfa4`'s 0.24-1.78%). That eliminates our patches as the cause and points the remaining regression
