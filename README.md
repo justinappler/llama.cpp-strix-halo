@@ -21,7 +21,7 @@ Latest production benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV 
 
 Worth knowing how to read that: versus the previous build, **prefill is flat and decode is up about 3-4%**. The decode gain is almost certainly upstream's, not ours - nothing this fork patches can move decode. The flat prefill is the good news for our side: this build rewrote the matmul patch onto a new upstream file, and losing that tuning would have cost 27-37%, so flat means it landed intact.
 
-One caveat we keep repeating because it is easy to misread: we have still never run the control build with our patch removed. "Fastest we have measured" is honest; "our patch is worth X%" is not something these numbers can support. See [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
+**We finally ran the control.** For four months this section carried a caveat that we had never built with our patches removed, so "our patch is worth X%" was not a claim the numbers supported. On 2026-08-29 we built clean upstream and our tree from the same commit, on the same host, in the same session: **our patches are worth +27.6% to +29.2% of prefill, at every depth, with decode flat to within 0.2%.** The flat decode is the part that makes it trustworthy - nothing this fork patches can move decode, so a clean tie there is what a single-variable comparison should look like. Details in [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
 
 ## What is actually patched
 

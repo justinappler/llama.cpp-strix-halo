@@ -29,7 +29,7 @@ The rest of this directory is one file per experiment - hypotheses, source point
 | [`tg-at-depth-regression.md`](tg-at-depth-regression.md) | TG-at-depth regression — **resolved upstream by #22298, 2026-04-27** |
 | [`jg-cuda-fa-rdna3-4.md`](jg-cuda-fa-rdna3-4.md) | FA MMA_F16 D=256 enablement (JG cherry-pick + 1-line guard widen) — **held, not promoted 2026-05-01** after honest f16/f16-KV A/B showed pp regression at depth |
 | [`fa-rdna3-opsel-pair.md`](fa-rdna3-opsel-pair.md) | OPSEL-paired half2 accumulator port — **attempted, abandoned 2026-05-04** in test-backend-ops debugging spiral; its f32-accumulator premise is **stale**, see `fa-mma-d256-26419.md` |
-| [`fa-mma-d256-26419.md`](fa-mma-d256-26419.md) | FA MMA_F16 at D=256 via upstream PR #26419 — **hypothesis 2026-08-29, bench pending**; would retire our `fattn-tile.cuh` patch at prefill by dispatch, with no merge conflict |
+| [`fa-mma-d256-26419.md`](fa-mma-d256-26419.md) | FA MMA_F16 at D=256 via upstream PR #26419 — **evaluated and declined 2026-08-29**: -4.7% pp@d=16k on stock upstream, -11.6% on our tree. Also carries the four-arm matrix that finally attributed the fork's patches at **+27.6-29.2% prefill** |
 | [`kernel-time-breakdown.md`](kernel-time-breakdown.md) | rocprofv3 kernel-time shares (pp/tg × shallow/deep) — **measured 2026-07-18**, reprices the backlog |
 | [`hip-graphs.md`](hip-graphs.md) | HIP graphs at decode — **traced 2026-07-18**: graphs already engaged in production; the 16% idle is replay-internal, no free lunch |
 | [`qwen3.6-baseline.md`](qwen3.6-baseline.md) | Qwen 3.6 35B-A3B baseline numbers |
