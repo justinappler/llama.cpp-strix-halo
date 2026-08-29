@@ -87,6 +87,76 @@ The +15% pp512@d=0 in the regression-state numbers above (1,185 vs 1,029 in Run 
 
 The regression note initially flagged "escalating `amdgpu_amdkfd_restore_userptr_worker` activity" as consistent with userptr eviction stalls. Direct check during this investigation: `dmesg` shows zero firings of `amdgpu_amdkfd_restore_userptr_worker` since boot. The hypothesis is dead. The depth-proportional shape of the original regression was real but came from the rocWMMA FA path scaling worse with KV cache size, not from KV being paged out.
 
+## 2026-08-29 — post-rebase re-bench (build `df16ecb`) — **prefill regression, not yet attributed**
+
+Arm C of [fa-mma-d256-26419.md](fa-mma-d256-26419.md). Build `df16ecb` (fork master on upstream
+`c841aeeb8`), ROCm 7.14.0, canonical bench with `-lm none`. **Run twice on a confirmed-idle host**
+because run 1's error bars were anomalous; run 2 reproduced them.
+
+| depth | run 1 pp512 | run 2 pp512 | mean | vs `b73cfa4` | run 1 tg128 | run 2 tg128 | vs `b73cfa4` |
+| ------: | ----------------: | ----------------: | ------: | ------: | -----------: | -----------: | ------: |
+|       0 | 1388.67 ± 97.25 | 1366.92 ± 101.85 | 1377.80 | **-5.3%** | 51.20 ± 0.20 | 51.11 ± 0.19 | -0.4% |
+|   2,048 | 1264.92 ± 47.60 | 1253.11 ± 46.20 | 1259.02 | **-3.5%** | 50.83 ± 0.19 | 50.75 ± 0.26 | -0.5% |
+|   8,192 | 1115.28 ± 52.99 | 1103.68 ± 58.99 | 1109.48 | **-2.5%** | 49.43 ± 0.18 | 49.38 ± 0.18 | -0.5% |
+|  16,384 |  952.16 ± 30.31 |  952.07 ± 26.95 |  952.12 | **-3.4%** | 47.62 ± 0.23 | 47.55 ± 0.23 | -0.5% |
+
+The d=0 comparator is ambiguous by mode: `b73cfa4` measured 1454.79 with `-mmp 0` and 1444.97 with
+`-lm none`. Against the like-for-like `-lm none` figure the d=0 delta is **-4.6%**, not -5.3%.
+
+### Two separate anomalies, and only one of them is the mean
+
+**1. Prefill is down 2.5-5.3% at every depth.** Reproducible across two runs. The d=16k figure is the
+solid one: 952.16 and 952.07 across independent invocations, agreeing to 0.01%, against a baseline of
+986.05 ± 13.84. Six reps at ~952 versus three at ~986 is a real difference, not a sampling artifact.
+
+**2. Per-rep variance exploded, and it is not the host.** This is the more interesting finding:
+
+| depth | `b73cfa4` rel. sd | `df16ecb` run 1 | `df16ecb` run 2 |
+| ------: | ------: | ------: | ------: |
+|       0 | 0.24% | 7.00% | 7.45% |
+|   2,048 | 0.88% | 3.76% | 3.69% |
+|   8,192 | 1.78% | 4.75% | 5.34% |
+|  16,384 | 1.40% | 3.18% | 2.83% |
+
+Run 1 was initially discounted as host interference. Run 2 on a confirmed-idle box reproduced both
+the means *and* the spread, so **the variance is a property of this build**. Note the shape: spread is
+worst at d=0 (7%), where prefill is MMQ-dominated (58% per
+[kernel-time-breakdown.md](kernel-time-breakdown.md)) and FA is only 2% - so this does not point at
+the FA path. Decode is unaffected on both axes: tg error bars stayed at ±0.2 and the means moved
+-0.4% to -0.5%, at or just inside noise.
+
+The combination - stable aggregate mean, high rep-to-rep spread, worst where MMQ dominates - is
+consistent with a codegen change altering scheduling or occupancy rather than with a tile-config
+change, which would move the mean without touching variance.
+
+### Prime suspect: the second math-flag removal
+
+Per the [re-bench checklist](upstream.md#re-bench-checklist), cheapest suspects first. Our three
+patches rebased **byte-identical** and upstream touched none of the three files, which makes them a
+weaker candidate than usual. The flag layer did change:
+
+[PR #26696](https://github.com/ggml-org/llama.cpp/pull/26696) (merged 2026-08-12) removed
+`-funsafe-math-optimizations` from `ggml/src/ggml-hip/CMakeLists.txt`. That was the **remaining**
+fast-math flag for HIP - the deliberate replacement for `-ffast-math`, whose own removal
+([PR #25495](https://github.com/ggml-org/llama.cpp/pull/25495)) was cleared in the 2026-08-02 bench
+below. The deleted comment said so explicitly: *"Fast math for HIP, like CUDA's `-use_fast_math`."*
+So HIP builds went from fast-math to IEEE-conformant in this window, across every kernel. Upstream's
+motivation was correctness, not speed: `-fassociative-math` reassociates FP reductions and can flip
+greedy argmax on RDNA3.5.
+
+**A global codegen change on our exact backend, landed in the exact window that produced a broad
+prefill regression, is the hypothesis to test first** - and it is a one-line restore
+(`-DCMAKE_HIP_FLAGS=-funsafe-math-optimizations`). If it is the cause, the honest framing is that we
+were banking a few percent of prefill on non-IEEE FP and upstream took it back deliberately; the
+question then becomes whether we want it locally, not whether it is a bug.
+
+Not yet excluded: our own patches interacting with 27 days of upstream. Arm A (upstream clean,
+`c841aeeb8`) separates the two - if A shows the same regression and spread against its own history,
+nothing here is ours.
+
+**Do not treat `df16ecb` as the new headline baseline.** `b73cfa4` remains the reference until this
+is attributed.
+
 ## 2026-08-02 — post-rebase re-bench (build `b73cfa4`)
 
 Current headline numbers. Build `b73cfa4`, ROCm 7.14.0, canonical bench (f16/f16 KV, FA on, `-b 4096 -ub 2048 -ngl 999 -mmp 0 -p 512 -n 128 -r 3 -d 0,2048,8192,16384`), no compose env vars — same shape as the `05e837f` run it replaces.
