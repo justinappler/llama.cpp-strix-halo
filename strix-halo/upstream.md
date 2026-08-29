@@ -17,6 +17,61 @@ Run this after **every** upstream sync or ROCm bump. No exceptions - the one tim
 
 > The old version of this checklist said to bisect `GGML_HIP_ROCWMMA_FATTN` first. That flag no longer exists - upstream deleted rocWMMA FlashAttention in [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046).
 
+## 2026-08-29 sync (`221f0f635` -> `c841aeeb8`)
+
+**Re-bench owed.** Nothing benched yet; arm C of [fa-mma-d256-26419.md](fa-mma-d256-26419.md)
+satisfies the checklist obligation.
+
+The rebase was clean on all three patches — the only conflicts were the GitHub Actions files we
+delete and `README.md`. Upstream touched **neither** `mmq-config-rdna3-5.cuh` nor `fattn-tile.cuh` in
+this window, and the one commit that touched `mmq.cuh` was 1200 lines away from our `J` cap.
+Two new upstream workflows (`make-release.yml`, `pr-draft-label.yml`) were added to our delete commit.
+
+- **[PR #26419](https://github.com/ggml-org/llama.cpp/pull/26419)** (srgtuszy, **open**) - widens the
+  FA dispatcher to route AMD WMMA to MMA_F16 at head dim 256. gfx1151 is inside the gate, so this
+  would silently retire our `fattn-tile.cuh` patch at prefill with no merge conflict. Highest-priority
+  item to measure. See [fa-mma-d256-26419.md](fa-mma-d256-26419.md).
+- **[PR #26079](https://github.com/ggml-org/llama.cpp/pull/26079)** (merged 2026-08-20) - adds
+  per-HW, per-quant-type switch points for the mvq -> MMQ decode crossover in
+  `ggml_cuda_should_use_mmvq`. NVIDIA and CDNA branches only; **the RDNA3.5 slot is empty**. This is
+  now the sanctioned extension point for [backlog.md](backlog.md) item 3, which previously had to be
+  argued for structurally.
+- **[PR #26544](https://github.com/ggml-org/llama.cpp/pull/26544)** (merged 2026-08-06) - onboards AMD
+  ROCm CI **with gfx1151 as the runner**, plus an integrated-GPU debug-assert fix on RDNA3.5. Our chip
+  now has upstream CI, which lowers the bar for upstreaming anything from here.
+- **[PR #26696](https://github.com/ggml-org/llama.cpp/pull/26696)** (merged 2026-08-12) - removes
+  `-funsafe-math-optimizations` from the HIP build, citing RDNA3.5 argmax flipping under MTP
+  speculative decode. **Resolves the open `-ffast-math` suspect** carried from the 2026-08-02 sync
+  below, in the same direction we would have wanted. Still unmeasured here, but no longer a decision.
+- **[PR #26859](https://github.com/ggml-org/llama.cpp/pull/26859)** (merged 2026-08-11) - guts the
+  VGPR-spill ignore list in `hip-quality-check` ("most of the old ones have been resolved"). The
+  register-pressure thesis behind our tile halving is now instrumented upstream.
+- **[PR #26802](https://github.com/ggml-org/llama.cpp/pull/26802)** (merged 2026-08-11) - stops
+  disabling CUDA graphs unless `mul_mat_id` actually needs a stream sync. Touches the open question in
+  [hip-graphs.md](hip-graphs.md) about whether the 16% decode idle gap is the floor of graph replay.
+- **[PR #27083](https://github.com/ggml-org/llama.cpp/pull/27083)** (merged 2026-08-17) - skips the UMA
+  override on HIP builds; AMD APUs report accurate memory via `hipMemGetInfo`. Adjacent to
+  [uma-integrated.md](uma-integrated.md), no action.
+- **[PR #26760](https://github.com/ggml-org/llama.cpp/pull/26760)** (merged 2026-08-09) - drops
+  `GGML_HIP_ROCWMMA_FATTN` from CI and the ROCm Dockerfile. Finding #6 is now closed on both sides.
+- **[PR #25775](https://github.com/ggml-org/llama.cpp/pull/25775)** (merged 2026-08-04) - upstream
+  targets ROCm 7.14 for build and release, matching our pin.
+
+Open PRs worth tracking but not acting on yet:
+
+- **[PR #26621](https://github.com/ggml-org/llama.cpp/pull/26621)** (draft, stale since 2026-08-08) -
+  pads matmul weight rows to break L2 cache-set aliasing, **benched on gfx1151**, claims up to 20%
+  prefill and 10% decode. Orthogonal to all three of our patches. Cheapest untested idea currently in
+  reach; we could be the second data point.
+- **[PR #26301](https://github.com/ggml-org/llama.cpp/pull/26301)** - dequant-float matvec for
+  Q4_K/Q5_K/Q6_K, **defaults on for RDNA3.5**, +5-10% decode claimed. Overlaps backlog item 3, though
+  our hot kernel is `mul_mat_vec_q<Q8_0>` and this covers k-quants.
+- **[PR #26284](https://github.com/ggml-org/llama.cpp/pull/26284)** - same idea as Finding #9 but for
+  `mmq-config-rdna3.cuh` (RDNA3.0 discrete), driven by an automated sweep script. Does not touch our
+  file. Precedent and tooling for upstreaming ours, not competition.
+- **[PR #24546](https://github.com/ggml-org/llama.cpp/pull/24546)** - still open, still unchanged. Our
+  Finding #10 result remains the only gfx1151 evidence on it and has never been posted.
+
 ## 2026-08-02 sync (136 commits, `1a064ab09` -> `221f0f635`)
 
 **Re-benched, clean.** Build `b73cfa4`: prefill flat, decode +3-4%, nothing regressed at any depth. Checklist obligation satisfied - numbers and interpretation in [qwen3.6-baseline.md](qwen3.6-baseline.md#2026-08-02--post-rebase-re-bench-build-b73cfa4).
