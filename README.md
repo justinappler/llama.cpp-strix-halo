@@ -8,32 +8,30 @@ Everything in this fork is meant to be measured. A change stays only if a benchm
 
 ## Where things stand
 
-Latest production benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV cache, FlashAttention on, build `b73cfa4` (2026-08-02):
+Latest benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV cache, FlashAttention on, mean of 3 runs of build `000887b` (2026-09-25, same kernels as current master):
 
 | context depth | prefill (tok/s) | decode (tok/s) |
 | ------------: | --------------: | -------------: |
-|             0 | 1455 | 51.4 |
-|         2,048 | 1304 | 51.0 |
-|         8,192 | 1138 | 49.7 |
-|        16,384 |  986 | 47.9 |
+|             0 | 1341 | 52.7 |
+|         2,048 | 1297 | 52.4 |
+|         8,192 | 1163 | 51.0 |
+|        16,384 | 1028 | 49.1 |
 
-**About 986 tok/s of prefill at 16k of context, and decode that barely sags across the whole depth range.** Best measured on every axis so far. Full flags and history: [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
+**Over 1000 tok/s of prefill at 16k of context, and decode above 49 tok/s at every depth.** Best measured at 8k and 16k of context and on decode (the 2026-08-02 build still holds d=0 and 2k). Full flags and history: [strix-halo/qwen3.6-baseline.md](strix-halo/qwen3.6-baseline.md).
 
-Worth knowing how to read that: versus the previous build, **prefill is flat and decode is up about 3-4%**. The decode gain is almost certainly upstream's, not ours - nothing this fork patches can move decode. The flat prefill is the good news for our side: this build rewrote the matmul patch onto a new upstream file, and losing that tuning would have cost 27-37%, so flat means it landed intact.
+**Upstream caught up with our biggest patch, and passed it.** For months our FlashAttention tile patch was the fork's largest single win, because upstream's faster "MMA" attention kernel lost on this chip at our head size (-11.6% at 16k when we last checked, on 2026-08-29). Upstream has since reworked that kernel and switched our chip onto it. We benched our patch against theirs head to head: **upstream's kernel is +11.2% faster at 16k**, and the gap grows with depth. So we dropped our patch. Details in [fa-mma-d256-26419.md](strix-halo/fa-mma-d256-26419.md#outcome-2026-09-25-upstream-mma-wins-guard-and-tile-patch-dropped).
 
-**We finally ran the control, and it overturned our headline claim.** For four months this section carried a caveat that we had never built with our patches removed. On 2026-08-29 we built clean upstream and our tree from the same commit, same host, same session: **the three patches together are worth +26.6% to +28.8% of prefill, at every depth, with decode flat to within 0.2%.** Then we built a third time with *only* the MMQ table change - the patch this fork has always credited with the win - and it came back at **+2.1% to +4.2%**, about a tenth of the total.
-
-So the fork is worth roughly what we said, but not for the reason we said. Every previous "+27% from the MMQ retune" was a bundle delta wearing one patch's name. The `J_max` cap measured flat back in Finding #10, which points at the FlashAttention tile patch for most of the remainder - not yet isolated. Details in [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
+Earlier in the year we also learned that the MMQ table - the patch this fork always credited with its ~27% prefill win - is worth only +2% to +4% on its own. Most of that 27% was the attention patch that upstream has now overtaken. Details in [findings.md](strix-halo/findings.md#two-caveats-worth-carrying-forward).
 
 ## What is actually patched
 
-Small on purpose. The whole fork is **three changes to three files**, plus documentation:
+Small on purpose, and smaller than it used to be. The whole fork is **one change to one file**, plus documentation:
 
 | What | Where | Why |
 |------|-------|-----|
-| **MMQ tile shape for RDNA3.5** | [mmq-config-rdna3-5.cuh](ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh) | Upstream ships a table for our chip but filled it with values copied from RDNA4 - a much larger, much higher-bandwidth GPU. We halve the tile (`nthreads` 256 -> 128, `I` 128 -> 64) so it fits gfx1151's register budget. |
-| **Smaller tiles for MoE experts** | [mmq.cuh](ggml/src/ggml-cuda/mmq.cuh#L1478) | Wide tiles help dense matmuls but waste work on mixture-of-experts routing, where each expert only covers a slice of the rows. Five lines that cap the tile width for expert dispatch. |
-| **FlashAttention tile config at D=256** | [fattn-tile.cuh](ggml/src/ggml-cuda/fattn-tile.cuh#L315) | One constant (`nbatch_K` 128 -> 64) for the attention kernel our production model uses. Currently the fork's highest-leverage patch: attention is 32% of prefill time at 16k depth. |
+| **MMQ tile shape for RDNA3.5** | [mmq-config-rdna3-5.cuh](ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh) | Upstream ships a table for our chip but filled it with values copied from RDNA4 - a much larger, much higher-bandwidth GPU. We halve the tile (`nthreads` 256 -> 128, `I` 128 -> 64) so it fits gfx1151's register budget. Worth +2% to +4% prefill, last measured 2026-08-29. |
+
+Two patches retired on 2026-09-25, both because upstream solved the same problem: the MoE tile-width cap (upstream now sizes MoE tiles from the average tokens per expert) and the FlashAttention tile config (upstream's MMA kernel is now faster).
 
 Everything else here is upstream, plus the `strix-halo/` notebook and a deleted GitHub Actions directory (this fork does not run upstream's CI).
 
@@ -43,9 +41,9 @@ Roughly chronological, in plain terms. The full register with numbers and links 
 
 **We started by looking for configuration mistakes, and found a big one.** Quantizing the KV cache - normally a sensible memory saving - turned out to cost **17x** on prefill at 16k context on this chip. Quantizing the V cache is the expensive half. No code change needed; just do not do it. This remains the single largest effect anyone here has measured.
 
-**Then we went after the matmul kernels, and this became the fork's long-running thread.** llama.cpp picks matmul tile sizes per GPU architecture, and gfx1151 kept inheriting settings meant for far larger AMD GPUs. Correcting that was worth about **+27% prefill**. That patch has now been rewritten three times as upstream restructured the code underneath it - twice because upstream deleted the functions it edited, and most recently because upstream added the exact per-architecture table we had been maintaining privately, then filled it with the wrong numbers. Each rewrite kept the same idea: smaller tiles, because this chip runs out of registers before it runs out of work.
+**Then we went after the matmul kernels, and this became the fork's long-running thread.** llama.cpp picks matmul tile sizes per GPU architecture, and gfx1151 kept inheriting settings meant for far larger AMD GPUs. We long credited that with about +27% prefill; the control later showed the table alone is worth +2% to +4%. That patch has now been rewritten three times as upstream restructured the code underneath it - twice because upstream deleted the functions it edited, and most recently because upstream added the exact per-architecture table we had been maintaining privately, then filled it with the wrong numbers. Each rewrite kept the same idea: smaller tiles, because this chip runs out of registers before it runs out of work.
 
-**We chased FlashAttention down a dead end for about a month.** The theory was that gfx1151 was being locked out of a faster attention kernel. Three separate attempts - widening a dispatcher check, cherry-picking an upstream developer's work-in-progress branch, and hand-porting a register-layout trick - produced one abandoned patch, one measured 22% regression, and one debugging spiral that ended without a root cause. Upstream then settled the question in the opposite direction from where we were pushing: for our head size, the simpler "tile" kernel is genuinely the faster one. The only thing that survived is a single tuned constant in that tile kernel.
+**We chased FlashAttention down a dead end for about a month.** The theory was that gfx1151 was being locked out of a faster attention kernel. Three separate attempts - widening a dispatcher check, cherry-picking an upstream developer's work-in-progress branch, and hand-porting a register-layout trick - produced one abandoned patch, one measured 22% regression, and one debugging spiral that ended without a root cause. Upstream then settled the question in the opposite direction from where we were pushing: for our head size, the simpler "tile" kernel is genuinely the faster one. The only thing that survived was a single tuned constant in that tile kernel - until September 2026, when upstream reworked the MMA kernel and it overtook the tile kernel by 11% at 16k. The argument ended in the direction we had first pushed, just not by our hand.
 
 **One patch quietly turned into a regression and we did not notice for five weeks.** A FlashAttention tuning port measured "flat" when it landed, so we stopped checking. A later change made it actively harmful - 3.5x worse prefill at depth - and it sat there. This is the origin of the [re-bench checklist](strix-halo/upstream.md#re-bench-checklist), and it is the main reason this fork writes down what was *measured* rather than what was *expected*.
 
@@ -59,9 +57,9 @@ Roughly chronological, in plain terms. The full register with numbers and links 
 
 Full list with cost and rationale: [strix-halo/backlog.md](strix-halo/backlog.md). The top three:
 
-1. **Tune the FlashAttention tile kernel at depth.** We ship one hand-picked constant and never swept the others. This is where the measured headroom is.
-2. **Run the control we skipped.** Three builds settles whether our MMQ retune is actually earning its keep, and unblocks proposing it upstream.
-3. **A dedicated matrix-vector table for this chip**, starting with the one quantization type that dominates decode. A naive version of this failed before; the corrected approach is narrower.
+1. **Re-measure the MMQ table on the current base, then propose it upstream.** It is the last patch here. Upstream merged the same kind of retune for RDNA3.0 this month, and gfx1151 has upstream CI. Landing it would leave this fork with no code of its own.
+2. **A dedicated matrix-vector table for this chip**, starting with the one quantization type that dominates decode. A naive version of this failed before; the corrected approach is narrower.
+3. **Re-profile prefill at depth on the new attention kernel.** The old profile was taken on the tile kernel we just dropped, so its attention numbers are out of date.
 
 ## How to work on this fork
 

@@ -87,6 +87,19 @@ The +15% pp512@d=0 in the regression-state numbers above (1,185 vs 1,029 in Run 
 
 The regression note initially flagged "escalating `amdgpu_amdkfd_restore_userptr_worker` activity" as consistent with userptr eviction stalls. Direct check during this investigation: `dmesg` shows zero firings of `amdgpu_amdkfd_restore_userptr_worker` since boot. The hypothesis is dead. The depth-proportional shape of the original regression was real but came from the rocWMMA FA path scaling worse with KV cache size, not from KV being paged out.
 
+## 2026-09-25 — post-sync A/B (builds `134077f` / `000887b`)
+
+Sync onto upstream `9f70b2cec`. Three interleaved cycles of arm G (fork with an RDNA3.5 D=256 FA guard) against arm N (same, upstream FA dispatch). Canonical shape. Full analysis in [fa-mma-d256-26419.md](fa-mma-d256-26419.md#outcome-2026-09-25-upstream-mma-wins-guard-and-tile-patch-dropped).
+
+| depth | pp512 G | pp512 N | tg128 G | tg128 N |
+| ------: | ------: | ------: | ------: | ------: |
+|       0 | 1353.3 | 1341.1 | 52.48 | 52.73 |
+|   2,048 | 1260.1 | 1296.6 | 52.28 | 52.40 |
+|   8,192 | 1086.8 | 1162.6 | 50.87 | 50.95 |
+|  16,384 |  924.6 | 1028.1 | 49.01 | 49.10 |
+
+N won and is what master now runs (upstream plus the MMQ table). Against arm C (`df16ecb`, 08-29), N is -2.7% pp at d=0, +3.0% at 2k, +4.8% at 8k and **+8.0% at 16k**, with decode +3.1% to +3.2% at every depth. That cross-build delta mixes 507 upstream commits with the `prop.integrated` revert (#28604), so it is not attributed. Error bars are tighter than arm C's (d=16k: +/-17-37 vs +/-27-30 for C).
+
 ## 2026-08-29 — post-rebase re-bench (build `df16ecb`) — **prefill regression, not yet attributed**
 
 Arm C of [fa-mma-d256-26419.md](fa-mma-d256-26419.md). Build `df16ecb` (fork master on upstream

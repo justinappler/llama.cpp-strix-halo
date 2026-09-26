@@ -22,7 +22,7 @@ The rest of this directory is one file per experiment - hypotheses, source point
 | [`rocm-config.md`](rocm-config.md) | ROCm env flags (hipBLASLt batching, unroll) |
 | [`mmq-rdna3_5.md`](mmq-rdna3_5.md) | MMQ tile tuning (PR #21344 port) — **code dropped 2026-07-16**, superseded by the config-table re-port |
 | [`mmq-rdna3_5-config-table.md`](mmq-rdna3_5-config-table.md) | RDNA3.5 MMQ config table — **live**; reshaped 2026-08-02 onto upstream's own `mmq-config-rdna3-5.cuh` (PR #26199), port's own share still unmeasured |
-| [`pp-rdna3_5-tile-mmq.md`](pp-rdna3_5-tile-mmq.md) | Dense MMQ + TILE FA D=256 follow-up — TILE FA half still live; MMQ half folded into the config-table re-port |
+| [`pp-rdna3_5-tile-mmq.md`](pp-rdna3_5-tile-mmq.md) | Dense MMQ + TILE FA D=256 follow-up — both halves retired 2026-09-25 (MMQ half to upstream #28552, TILE half beaten by upstream MMA) |
 | [`mmq-moe-ncols-picker.md`](mmq-moe-ncols-picker.md) | Routed-MoE tile sizing: static `J=48` cap vs re-port of upstream PR #24546 — **reverted 2026-07-17**, flat (J=48 ≡ J=64 at ub=2048) |
 | [`rocwmma-tuned.md`](rocwmma-tuned.md) | rocWMMA FA tuning (PR #16827 port) — **closed for good 2026-08-02**: upstream PR #26046 deleted the kernel and the flag |
 | [`mmvq-rdna3_5.md`](mmvq-rdna3_5.md) | MMVQ routing notes |

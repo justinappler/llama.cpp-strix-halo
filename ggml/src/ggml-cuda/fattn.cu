@@ -694,9 +694,7 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
     }
 
     // AMD WMMA is faster than the tile kernel if the wide tiles with high arithmetic intensity can be utilized.
-    // On RDNA3.5 the tuned tile kernel is still faster for head size 256.
-    const int wmma_max_head_size = GGML_CUDA_CC_IS_RDNA3_5(cc) ? 128 : 256;
-    if ((amd_wmma_available(cc) && gqa_opt_applies && Q->ne[0] <= wmma_max_head_size) && Q->ne[0] != 40 && Q->ne[0] != 72 &&
+    if ((amd_wmma_available(cc) && gqa_opt_applies && Q->ne[0] <= 256) && Q->ne[0] != 40 && Q->ne[0] != 72 &&
             Q->ne[1] * gqa_ratio_eff > (Q->ne[0] <= 128 ? 8 : 16)) {
         return BEST_FATTN_KERNEL_MMA_F16;
     }
