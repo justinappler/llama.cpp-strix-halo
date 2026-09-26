@@ -10,12 +10,26 @@ Run this after **every** upstream sync or ROCm bump. No exceptions - the one tim
 
 1. Run the full Qwen 3.6 matrix at depths `{0, 2048, 8192, 16384}` and compare against the previous baseline in [qwen3.6-baseline.md](qwen3.6-baseline.md). Noise floor on this host is about +/-1.5%.
 2. If anything moved more than that, **do not assume it was the upstream bundle.** Bisect the cheapest suspects first, in this order:
-   - **Our own patches.** There are only three, and two are one file each. `git checkout upstream/master -- ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh` and `-- ggml/src/ggml-cuda/fattn-tile.cuh` are both single-command reverts that produce a clean A/B.
+   - **Our own patches.** There are three: the MMQ table, the FA tile config, and (since 2026-09-25) the RDNA3.5 D=256 guard in `fattn.cu`. `git checkout upstream/master -- <file>` on `mmq-config-rdna3-5.cuh` or `fattn.cu` is a single-command revert that produces a clean A/B. Reverting `fattn.cu` alone also makes the `fattn-tile.cuh` patch dead at prefill.
    - **HIP compiler flags.** Two changed under us in this window and neither has been measured: upstream [PR #25495](https://github.com/ggml-org/llama.cpp/pull/25495) removed `-ffast-math` from the whole HIP build, and we dropped `--amdgpu-unroll-threshold-local=600` from the deploy build on 2026-08-02 ([rocm-config.md](rocm-config.md)). Both are one-line restores.
    - **The ROCm version**, last.
 3. Record the result in the relevant topic doc even if nothing moved. "Re-benched, flat" is a useful entry; silence is not.
 
 > The old version of this checklist said to bisect `GGML_HIP_ROCWMMA_FATTN` first. That flag no longer exists - upstream deleted rocWMMA FlashAttention in [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046).
+
+## 2026-09-25 sync (`c841aeeb8` -> `9f70b2cec`, 507 commits)
+
+**Re-bench owed.** The guard-vs-no-guard A/B in [fa-mma-d256-26419.md](fa-mma-d256-26419.md#2026-09-25-upstream-landed-the-same-gate-as-28102) satisfies the checklist obligation.
+
+For the first time all three of our patched files moved upstream. Conflicts were the GitHub Actions files (the delete commit now removes the whole directory, including new ones such as `fusion.yml` and `ui.yml`), `README.md`, and `mmq.cuh`.
+
+- **[PR #28102](https://github.com/ggml-org/llama.cpp/pull/28102)** (merged 2026-09-11) - routes AMD WMMA to MMA_F16 at head dim 256. This is #26419 landed under another number, and it silently bypasses our `fattn-tile.cuh` patch at prefill. **Action:** added an RDNA3.5-only guard in `fattn.cu`. Details, plan and decision rule in [fa-mma-d256-26419.md](fa-mma-d256-26419.md#2026-09-25-upstream-landed-the-same-gate-as-28102).
+- **[PR #28552](https://github.com/ggml-org/llama.cpp/pull/28552)** (merged 2026-09-09) and **[PR #28935](https://github.com/ggml-org/llama.cpp/pull/28935)** (merged 2026-09-16) - #24546 landed, as `mmq_args::ncols_opt`: MMQ picks `J` against average tokens per expert instead of `ncols_max`. #28935 widens it from `RDNA3_0` to all RDNA3, so gfx1151 gets it. This is the picker from [Finding #10](mmq-moe-ncols-picker.md), which measured flat against our static `J=48` cap. **Action:** dropped the `J_max` cap. `mmq.cuh` now matches upstream. During the rebase the cap was kept and the July picker test/revert pair resolved to no code change, so the drop is in the sync commit only.
+- **[PR #28604](https://github.com/ggml-org/llama.cpp/pull/28604)** (merged 2026-09-08) - reverts #24233, so HIP devices report `integrated = false` again. #24233 had been in our base since 2026-07-16, so **every bench from `b73cfa4` to arm C ran with gfx1151 reported as integrated.** [uma-integrated.md](uma-integrated.md) found the flag gates little in release builds, so the effect is probably small. It cancels within this sync's A/B, but note it before comparing against older absolute numbers.
+- **`mmq-config-rdna3-5.cuh`** - no net change upstream (#24546 was reverted, then re-landed as #28552 without touching the table). Our retune applied clean.
+- **[PR #28079](https://github.com/ggml-org/llama.cpp/pull/28079)** - `GGML_FA_ALL_QUANTS` is now `GGML_FA_QUANTS`. The deploy build sets neither, no action.
+- **[PR #28334](https://github.com/ggml-org/llama.cpp/pull/28334)** - officially deprecates `--mmap`, `--mlock` and `--dio` in favour of `--load-mode`. Deploy config still uses the old keys and should move.
+- Free wins that should reach our MoE models, unmeasured: RMS_NORM+SCALE fusion (#29393), fused MoE weighted expert reduction (#25952), top-k MoE fusion always firing (#28432), HIP IQ2/IQ3 SWAR (#27962).
 
 ## 2026-08-29 sync (`221f0f635` -> `c841aeeb8`)
 
