@@ -1,5 +1,24 @@
 # ROCm config flags — LLVM unroll + HIPBLASLT_BATCHED — null on Qwen 3.6
 
+## Update (2026-09-25): ROCm 10.0.0, installed from apt
+
+The deploy build moved from the ROCm 7.14.0 TheRock tarball to **ROCm 10.0.0** (LLVM 23 -> 24, HIP 7.14 -> 10.0), installed from AMD's signed stable apt repo as per-arch packages: `amdrocm-core-dev10.0-gfx1151` to build, `amdrocm10.0-gfx1151` at runtime. Two things to know:
+
+- **Layout changed.** Packages install under `/opt/rocm/core-10.0/`, not a flat `/opt/rocm`. `ROCM_PATH`, `HIP_PATH`, `PATH` and the loader path point there. The series is in every package name, so going to 10.1 renames packages, not just the version pin.
+- **The tarball path moved too.** From 10.0 the stable tarballs live at `stable.repo.amd.com/rocm/core/tarball/`; the old `repo.amd.com/rocm/tarball/` index stops at 7.13 (7.14.0 is there but unlisted). ROCm 7.14.1 (2026-08-31) only fixes an MI300X RCCL regression and an amdflang build break, so it was skipped.
+
+**Benched 2026-09-25, same llama.cpp build `60d0850`, 3 interleaved cycles, ROCm the only variable:**
+
+| test | 7.14.0 | 10.0.0 | delta |
+| --- | ---: | ---: | ---: |
+| pp512 d=0 | 1347.0 (1336-1364) | 1355.3 (1353-1357) | +0.6% |
+| pp512 d=2,048 | 1292.7 (1285-1298) | 1282.0 (1268-1293) | -0.8% |
+| pp512 d=8,192 | 1136.7 (1099-1159) | 1154.5 (1145-1169) | +1.6% |
+| pp512 d=16,384 | 1030.9 (1013-1040) | 1004.8 (990-1015) | -2.5% |
+| tg128 d=0 / 2k / 8k / 16k | 52.12 / 51.76 / 50.42 / 48.53 | 51.85 / 52.04 / 50.50 / 48.64 | -0.5% to +0.5% |
+
+**Adopted: a wash, with one soft spot.** Decode is flat and prefill is within noise at three depths. d=16k is -2.5% with ranges that just touch (1013 vs 1015), not beyond noise but worth watching on the next re-bench. The HIP runtime library reports `7.15.26333` despite the 10.0 package version.
+
 ## Status (2026-08-02): unroll flag retired, the underlying bug is fixed
 
 **The `-mllvm --amdgpu-unroll-threshold-local=600` workaround was dropped from the build.** The LLVM regression it worked around is fixed in our toolchain.

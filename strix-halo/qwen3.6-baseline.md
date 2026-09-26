@@ -87,6 +87,10 @@ The +15% pp512@d=0 in the regression-state numbers above (1,185 vs 1,029 in Run 
 
 The regression note initially flagged "escalating `amdgpu_amdkfd_restore_userptr_worker` activity" as consistent with userptr eviction stalls. Direct check during this investigation: `dmesg` shows zero firings of `amdgpu_amdkfd_restore_userptr_worker` since boot. The hypothesis is dead. The depth-proportional shape of the original regression was real but came from the rocWMMA FA path scaling worse with KV cache size, not from KV being paged out.
 
+## 2026-09-25 — ROCm 7.14.0 -> 10.0.0 (build `60d0850`)
+
+Same llama.cpp build on both arms, 3 interleaved cycles: prefill +0.6% / -0.8% / +1.6% / -2.5% at d=0 / 2k / 8k / 16k, decode -0.5% to +0.5%. Adopted; d=16k is the one to watch. Full table and install notes in [rocm-config.md](rocm-config.md#update-2026-09-25-rocm-1000-installed-from-apt). Production now runs ROCm 10.0.0.
+
 ## 2026-09-25 — post-sync A/B (builds `134077f` / `000887b`)
 
 Sync onto upstream `9f70b2cec`. Three interleaved cycles of arm G (fork with an RDNA3.5 D=256 FA guard) against arm N (same, upstream FA dispatch). Canonical shape. Full analysis in [fa-mma-d256-26419.md](fa-mma-d256-26419.md#outcome-2026-09-25-upstream-mma-wins-guard-and-tile-patch-dropped).

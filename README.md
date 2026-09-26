@@ -8,7 +8,7 @@ Everything in this fork is meant to be measured. A change stays only if a benchm
 
 ## Where things stand
 
-Latest benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0, f16/f16 KV cache, FlashAttention on, mean of 3 runs of build `000887b` (2026-09-25, same kernels as current master):
+Latest benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0 (production has since moved to 10.0.0, within noise - see [rocm-config.md](strix-halo/rocm-config.md#update-2026-09-25-rocm-1000-installed-from-apt)), f16/f16 KV cache, FlashAttention on, mean of 3 runs of build `000887b` (2026-09-25, same kernels as current master):
 
 | context depth | prefill (tok/s) | decode (tok/s) |
 | ------------: | --------------: | -------------: |
