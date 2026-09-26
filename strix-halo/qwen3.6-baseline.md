@@ -100,6 +100,8 @@ Sync onto upstream `9f70b2cec`. Three interleaved cycles of arm G (fork with an 
 
 N won and is what master now runs (upstream plus the MMQ table). Against arm C (`df16ecb`, 08-29), N is -2.7% pp at d=0, +3.0% at 2k, +4.8% at 8k and **+8.0% at 16k**, with decode +3.1% to +3.2% at every depth. That cross-build delta mixes 507 upstream commits with the `prop.integrated` revert (#28604), so it is not attributed. Error bars are tighter than arm C's (d=16k: +/-17-37 vs +/-27-30 for C).
 
+**Deployed master `60d0850` confirmed** (single run, same session, differs from arm N only by the unreachable `fattn-tile.cuh` config): pp512 1345.96 / 1293.45 / 1159.05 / 1024.64, tg128 52.60 / 52.32 / 50.75 / 48.93. Within 0.4% of arm N's mean at every point.
+
 ## 2026-08-29 — post-rebase re-bench (build `df16ecb`) — **prefill regression, not yet attributed**
 
 Arm C of [fa-mma-d256-26419.md](fa-mma-d256-26419.md). Build `df16ecb` (fork master on upstream
