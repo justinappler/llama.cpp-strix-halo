@@ -1,12 +1,17 @@
 # llama.cpp - Strix Halo fork
 
+> [!IMPORTANT]
+> **Our work here is done.** This fork was retired on 2026-10-19 and no longer takes changes. **For AMD Strix Halo (`gfx1151`), use [upstream llama.cpp](https://github.com/ggml-org/llama.cpp).**
+>
+> Upstream has now absorbed or beaten everything this fork carried. The last patch, an RDNA3.5 MMQ tile retune, landed upstream as [PR #28195](https://github.com/ggml-org/llama.cpp/pull/28195) (`4dd6dd4b9`, 2026-10-14). What is left here was worth about 2-3% prefill at depth, which is not worth keeping a fork in sync for. See [What is left](#what-is-left).
+>
+> The repo stays up as a lab notebook. [`strix-halo/`](strix-halo/README.md) has every finding, every postmortem and the bench method, and most of it still applies to upstream on this chip. The rest of this README is frozen as of the retirement and describes the fork as it stood.
+
 A fork of [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) that tunes inference for **AMD Strix Halo** - the `gfx1151` chip in machines like the Framework Desktop and other Ryzen AI Max boxes. It pairs an RDNA 3.5 integrated GPU with Zen 5 cores and one shared pool of LPDDR5x memory.
 
 The target workload is **agentic coding**: long prompts, deep context, and time-to-first-token that you actually feel. That means prefill speed at depth matters more here than raw decode speed on a short prompt.
 
 Everything in this fork is meant to be measured. A change stays only if a benchmark on real hardware says it should.
-
-> **Retired 2026-10-19.** Upstream [PR #28195](https://github.com/ggml-org/llama.cpp/pull/28195) (merged 2026-10-14 as `4dd6dd4b9`) moved the RDNA3.5 MMQ table onto the same 64-row tiles this fork used, for the quant types that dominate real models. That was the fork's last patch. What remains here is worth about 2-3% prefill at depth and is not worth carrying a fork for. **Use upstream llama.cpp on gfx1151.** This repo stays up as a lab notebook: the [`strix-halo/`](strix-halo/README.md) findings, the postmortems, and the bench method still apply. Nothing below this line will be updated.
 
 ## Where things stand
 
