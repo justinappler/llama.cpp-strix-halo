@@ -2,6 +2,8 @@
 
 Markdown in this directory is the **lab notebook** for AMD Strix Halo (`gfx1151`) work: hypotheses, source pointers, benchmark tables, and dead ends.
 
+**The fork was retired on 2026-10-19,** after upstream PR #28195 landed the MMQ retune that was its last patch. The notebook is frozen as a record.
+
 **New here?** Read the root [`README.md`](../README.md) first - it is the plain-language orientation. Then pick up whichever of the three registers you need:
 
 | Register | What it answers |

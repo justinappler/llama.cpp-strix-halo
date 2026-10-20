@@ -17,6 +17,14 @@ Run this after **every** upstream sync or ROCm bump. No exceptions - the one tim
 
 > The old version of this checklist said to bisect `GGML_HIP_ROCWMMA_FATTN` first. That flag no longer exists - upstream deleted rocWMMA FlashAttention in [PR #26046](https://github.com/ggml-org/llama.cpp/pull/26046).
 
+## 2026-10-14: PR #28195 merged, fork retired
+
+**[PR #28195](https://github.com/ggml-org/llama.cpp/pull/28195)** (merged 2026-10-14, `4dd6dd4b9`) moved the RDNA3.5 MMQ table to 64-row tiles for Q4_0, Q4_K, Q5_K, Q6_K and Q8_0 at most J values. That was the bulk of this fork's last patch.
+
+What upstream left on the wide tile, where this fork still differs: J=96 for every type (upstream measured no gain), J=128 for Q5_K and Q8_0, J=112 for Q6_K, the fallback rows at J=48, and every other quant type. On 2026-09-26 the fork was +2.0% at d=8k and +2.8% at d=16k against `9f70b2cec` with #28195 applied.
+
+**Action:** none in code. About 2-3% is not worth keeping a fork in sync, so the fork was retired on 2026-10-19 and not resynced past `9f70b2cec`. Build `000887b`, the source of the README's headline numbers, is kept under the tag `bench/000887b`.
+
 ## 2026-09-25 sync (`c841aeeb8` -> `9f70b2cec`, 507 commits)
 
 **Re-benched.** Three-cycle guard-vs-no-guard A/B in [fa-mma-d256-26419.md](fa-mma-d256-26419.md#outcome-2026-09-25-upstream-mma-wins-guard-and-tile-patch-dropped): upstream's dispatch won by up to +11.2% at d=16k, so the guard and the `fattn-tile.cuh` patch were both dropped. **Master is now upstream plus the RDNA3.5 MMQ table.**

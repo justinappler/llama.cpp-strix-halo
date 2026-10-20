@@ -1,5 +1,9 @@
 # MMQ RDNA3.5 config table — re-port of Finding #5/#8 onto upstream PR #24127
 
+## Outcome (2026-10-14 — upstream landed it)
+
+Upstream [PR #28195](https://github.com/ggml-org/llama.cpp/pull/28195) (merged 2026-10-14 as `4dd6dd4b9`) moved 30 rows of the RDNA3.5 table to `128, 2, 64` for Q4_0, Q4_K, Q5_K, Q6_K and Q8_0. That is the same tile this doc argued for, applied to the types that matter for real models. The PR excluded J=96 because it measured no gain there. Upstream's own numbers on gfx1151: median +2.1% across 100 `MUL_MAT` shapes, +8.0% on `MUL_MAT_ID`. The fork's residual over it was +2.0% to +2.8% at d=8k/16k (2026-09-26). This retired the fork; see [upstream.md](upstream.md#2026-10-14-pr-28195-merged-fork-retired).
+
 ## Status (2026-07-16 — shipped and benched)
 
 Third incarnation of the gfx1151 MMQ tuning. The previous two forms (the six-edit ternary patch from [mmq-rdna3_5.md](mmq-rdna3_5.md), and the dense/MoE split from [pp-rdna3_5-tile-mmq.md](pp-rdna3_5-tile-mmq.md)) were **dropped, not rebased**, on the 2026-07-16 upstream sync. Upstream [PR #24127](https://github.com/ggml-org/llama.cpp/pull/24127) (JohannesGaessler, merged 2026-07-13, `6eddde06`) deleted every function they edited. This doc covers the re-port against the replacement architecture.

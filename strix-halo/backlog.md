@@ -1,5 +1,7 @@
 # Backlog - what to try next
 
+> **Closed 2026-10-19.** The fork is retired (see the [root README](../README.md)). Nothing here will be picked up as fork work. The open items are left as notes for anyone tuning gfx1151 upstream. Re-measure on a current upstream build before trusting any number below.
+
 Ordered by expected return, **re-priced against the 2026-07-18 kernel profile** ([kernel-time-breakdown.md](kernel-time-breakdown.md)). Before that profile the ordering was guesswork about where time went; now it is not.
 
 Cost is calendar effort: **S** = hours, **M** = a day or two, **L** = a week, **XL** = multi-week. Benefit is a measured or plausible pp/tg delta on the Qwen 3.6 35B-A3B workload unless noted.

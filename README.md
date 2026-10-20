@@ -6,6 +6,8 @@ The target workload is **agentic coding**: long prompts, deep context, and time-
 
 Everything in this fork is meant to be measured. A change stays only if a benchmark on real hardware says it should.
 
+> **Retired 2026-10-19.** Upstream [PR #28195](https://github.com/ggml-org/llama.cpp/pull/28195) (merged 2026-10-14 as `4dd6dd4b9`) moved the RDNA3.5 MMQ table onto the same 64-row tiles this fork used, for the quant types that dominate real models. That was the fork's last patch. What remains here is worth about 2-3% prefill at depth and is not worth carrying a fork for. **Use upstream llama.cpp on gfx1151.** This repo stays up as a lab notebook: the [`strix-halo/`](strix-halo/README.md) findings, the postmortems, and the bench method still apply. Nothing below this line will be updated.
+
 ## Where things stand
 
 Latest benchmark - Qwen 3.6 35B-A3B Q4_K_XL, ROCm 7.14.0 (production has since moved to 10.0.0, within noise - see [rocm-config.md](strix-halo/rocm-config.md#update-2026-09-25-rocm-1000-installed-from-apt)), f16/f16 KV cache, FlashAttention on, mean of 3 runs of build `000887b` (2026-09-25, same kernels as current master):
@@ -29,7 +31,7 @@ Small on purpose, and smaller than it used to be. The whole fork is **one change
 
 | What | Where | Why |
 |------|-------|-----|
-| **MMQ tile shape for RDNA3.5** | [mmq-config-rdna3-5.cuh](ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh) | Upstream ships a table for our chip but filled it with values copied from RDNA4 - a much larger, much higher-bandwidth GPU. We halve the tile (`nthreads` 256 -> 128, `I` 128 -> 64) so it fits gfx1151's register budget. Worth +2% to +4% prefill, last measured 2026-08-29. |
+| **MMQ tile shape for RDNA3.5** | [mmq-config-rdna3-5.cuh](ggml/src/ggml-cuda/mmq-config-rdna3-5.cuh) | Upstream ships a table for our chip but filled it with values copied from RDNA4 - a much larger, much higher-bandwidth GPU. We halve the tile (`nthreads` 256 -> 128, `I` 128 -> 64) so it fits gfx1151's register budget. Worth +2% to +4% prefill, last measured 2026-08-29. **Mostly upstream since 2026-10-14** ([#28195](https://github.com/ggml-org/llama.cpp/pull/28195)); see [What is left](#what-is-left). |
 
 Two patches retired on 2026-09-25, both because upstream solved the same problem: the MoE tile-width cap (upstream now sizes MoE tiles from the average tokens per expert) and the FlashAttention tile config (upstream's MMA kernel is now faster).
 
@@ -53,17 +55,19 @@ Roughly chronological, in plain terms. The full register with numbers and links 
 - **Decode is essentially one kernel.** A single quantized matrix-vector kernel is 51% of decode time, called 161 times per token.
 - **A promising-looking 16% GPU idle gap during decode is not free money.** It looked like launch overhead that graph capture would fix - but tracing showed graph capture is *already* on and working. That win was already banked.
 
-## What is next
+## What is left
 
-Full list with cost and rationale: [strix-halo/backlog.md](strix-halo/backlog.md). The top three:
+Nothing that justifies a fork. Diffing this fork's table against upstream after #28195 leaves:
 
-1. **Re-measure the MMQ table on the current base, then propose it upstream.** It is the last patch here. Upstream merged the same kind of retune for RDNA3.0 this month, and gfx1151 has upstream CI. Landing it would leave this fork with no code of its own.
-2. **A dedicated matrix-vector table for this chip**, starting with the one quantization type that dominates decode. A naive version of this failed before; the corrected approach is narrower.
-3. **Re-profile prefill at depth on the new attention kernel.** The old profile was taken on the tile kernel we just dropped, so its attention numbers are out of date.
+- **J=96 for Q4_0, Q4_K, Q5_K, Q6_K and Q8_0.** Upstream left these on the wide tile on purpose, because they measured no gain on gfx1151.
+- **A few edges of the same types:** J=128 for Q5_K and Q8_0, J=112 for Q6_K, and the fallback rows at J=48.
+- **Every other quant type** (the IQ types, Q4_1, Q5_0/1, Q2_K, Q3_K, MXFP4, NVFP4, Q1_0/Q2_0). Upstream has not touched them, and this fork has never benched them on their own. If you run MXFP4 or IQ quants on gfx1151, that is the one place a small upstream PR might still pay, measured with `test-backend-ops perf` the way #28195 was.
+
+The last head-to-head (2026-09-26, three interleaved cycles) put this fork +2.0% ahead at 8k of context and +2.8% at 16k, against upstream `9f70b2cec` with #28195 applied. The unfinished ideas in [strix-halo/backlog.md](strix-halo/backlog.md), such as an RDNA3.5 matrix-vector table for decode, are upstream work now, not fork work.
 
 ## How to work on this fork
 
-One branch, `master`, tracking upstream plus our patches and the `strix-halo/` notebook. Each attempt is ideally **one commit**:
+Kept for the record; the fork no longer takes changes. One branch, `master`, tracking upstream plus our patches and the `strix-halo/` notebook. Each attempt is ideally **one commit**:
 
 1. **Write the hypothesis first** as a new markdown file in `strix-halo/`. Link the lines you intend to change and state what you will measure before you measure it.
 2. **Land the code change** as a single commit.
@@ -80,7 +84,7 @@ Upstream moves fast, and it has retired several of this fork's patches by solvin
 
 ## Building for gfx1151
 
-Official ROCm packages have shipped broken `gfx1151` kernel artifacts in some releases - see [ROCm/ROCm#6042](https://github.com/ROCm/ROCm/issues/6042). This fork currently builds against the **ROCm 7.14.0 release**, having moved off TheRock nightlies in July 2026.
+Official ROCm packages have shipped broken `gfx1151` kernel artifacts in some releases - see [ROCm/ROCm#6042](https://github.com/ROCm/ROCm/issues/6042). The fork's last builds used **ROCm 10.0.0** from AMD's apt repository; before that, the ROCm 7.14.0 release, after moving off TheRock nightlies in July 2026.
 
 The multi-stage Docker build, the deployment playbooks, and the profiling harness are maintained separately from this repo, in a private deploy repo. Benchmarks quoted here were run through that harness; the bench flags themselves are always written out in full in the topic docs so the numbers can be reproduced without it.
 
